@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "control-center-local",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "set CC_HOST=127.0.0.1&& set CC_PORT=8766&& .venv\\Scripts\\python.exe -m server.main"],
+      "port": 8766
+    }
+  ]
+}

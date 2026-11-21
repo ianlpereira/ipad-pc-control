@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Control Center</title>
+<!-- Viewport travado: sem zoom, sem scroll, usa a tela inteira do iPad -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- WebClip/PWA em tela cheia (sem barra do Safari) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PC Control">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#0b0e17">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<!-- Diagnóstico: roda antes de tudo (ES5 puro). Erros de JS e falhas ao carregar
+     CSS/JS vão para o servidor (logs/client-debug.log) e aparecem numa faixa vermelha. -->
+<script>
+(function () {
+  function report(kind, data) {
+    try {
+      var x = new XMLHttpRequest();
+      x.open('POST', '/debug', true);
+      x.setRequestHeader('Content-Type', 'text/plain');
+      x.send(JSON.stringify({ kind: kind, data: data, ua: navigator.userAgent,
+        w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio,
+        standalone: !!navigator.standalone }));
+    } catch (e) { /* sem rede: nada a fazer */ }
+  }
+  function show(msg) {
+    var add = function () {
+      var b = document.getElementById('cc-err');
+      if (!b) {
+        b = document.createElement('div'); b.id = 'cc-err';
+        b.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;background:#b91c1c;color:#fff;' +
+          'font:14px/1.3 -apple-system,sans-serif;padding:10px 14px;white-space:pre-wrap;max-height:50%;overflow:auto';
+        document.body.appendChild(b);
+      }
+      b.textContent += msg + '\n';
+    };
+    if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
+  }
+  window.__ccReport = report;
+  window.addEventListener('error', function (e) {
+    var t = e.target;
+    if (t && t !== window && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+      var src = t.src || t.href;
+      report('load-fail', { tag: t.tagName, src: src });
+      show('Falha ao carregar ' + src);
+      return;
+    }
+    var d = { msg: e.message, src: e.filename, line: e.lineno, col: e.colno };
+    report('js-error', d);
+    show('Erro JS: ' + e.message + ' (' + (e.filename || '').split('/').pop() + ':' + e.lineno + ':' + e.colno + ')');
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e.reason; var m = r && r.message ? r.message : String(r);
+    report('promise', { msg: m });
+  });
+  report('boot', { href: location.href });
+})();
+</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== Barra superior ===== -->
+  <header id="topbar" class="glass">
+    <div class="tb-left">
+      <span id="clock" class="clock">--:--</span>
+      <span id="date" class="muted"></span>
+    </div>
+    <div id="win-title" class="tb-center ellipsis muted"></div>
+    <div class="tb-right">
+      <span id="host" class="muted"></span>
+      <span id="latency" class="pill">-- ms</span>
+      <button class="btn bell" id="bell"><span>🔔</span><b id="bell-count" class="badge hidden">0</b></button>
+      <span id="conn-dot" class="dot"></span>
+    </div>
+  </header>
+
+  <!-- ===== Telemetria fixa ===== -->
+  <section id="telemetry">
+    <div class="card gauge-card" data-gauge="cpu">
+      <svg class="gauge" viewBox="0 0 100 100">
+        <path class="g-track" d="M21.72 78.28 A40 40 0 1 1 78.28 78.28"/>
+        <path class="g-value" d="M21.72 78.28 A40 40 0 1 1 78.28 78.28"/>
+      </svg>
+      <div class="g-center"><b class="g-num">--</b><small>%</small></div>
+      <div class="g-label">CPU</div>
+      <div class="g-sub" id="cpu-sub">—</div>
+    </div>
+    <div class="card gauge-card" data-gauge="gpu">
+      <svg class="gauge" viewBox="0 0 100 100">
+        <path class="g-track" d="M21.72 78.28 A40 40 0 1 1 78.28 78.28"/>
+        <path class="g-value" d="M21.72 78.28 A40 40 0 1 1 78.28 78.28"/>
+      </svg>
+      <div class="g-center"><b class="g-num">--</b><small>%</small></div>
+      <div class="g-label">GPU</div>
+      <div class="g-sub" id="gpu-sub">—</div>
+    </div>
+    <div class="card gauge-card" data-gauge="ram">
+      <svg class="gauge" viewBox="0 0 100 100">
+        <path class="g-track" d="M21.72 78.28 A40 40 0 1 1 78.28 78.28"/>
+        <path class="g-value" d="M21.72 78.28 A40 40 0 1 1 78.28 78.28"/>
+      </svg>
+      <div class="g-center"><b class="g-num">--</b><small>%</small></div>
+      <div class="g-label">RAM</div>
+      <div class="g-sub" id="ram-sub">—</div>
+    </div>
+    <div class="card temp-card">
+      <div class="card-title">Temperatura</div>
+      <div class="temp-row"><span>CPU</span><div class="bar"><i id="cpu-temp-bar"></i></div><b id="cpu-temp">—</b></div>
+      <div class="temp-row"><span>GPU</span><div class="bar"><i id="gpu-temp-bar"></i></div><b id="gpu-temp">—</b></div>
+      <div class="temp-row small"><span>Hotspot</span><div class="bar"><i id="hot-temp-bar"></i></div><b id="hot-temp">—</b></div>
+      <div id="lhm-hint" class="hint hidden">Abra o LibreHardwareMonitor</div>
+    </div>
+    <div class="card net-card">
+      <div class="card-title">Rede</div>
+      <div class="net-vals">
+        <div><span class="down">↓</span> <b id="net-down">—</b></div>
+        <div><span class="up">↑</span> <b id="net-up">—</b></div>
+      </div>
+      <canvas id="net-spark" width="200" height="60"></canvas>
+    </div>
+  </section>
+
+  <!-- ===== Páginas ===== -->
+  <main id="pages">
+
+    <!-- Mídia -->
+    <section class="page active" data-page="media">
+      <div class="card np-card">
+        <div class="np-top">
+          <div class="np-art"><img id="np-art" alt=""><span id="np-art-ph">♪</span></div>
+          <div class="np-info">
+            <div id="np-app" class="muted small">Nada tocando</div>
+            <div id="np-title" class="np-title ellipsis2">—</div>
+            <div id="np-artist" class="muted ellipsis">&nbsp;</div>
+            <div class="np-progress"><div class="bar"><i id="np-bar"></i></div>
+              <div class="np-times muted small"><span id="np-pos">0:00</span><span id="np-dur">0:00</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="np-controls">
+          <button class="btn round" data-action="media.prev">⏮</button>
+          <button class="btn round big accent" data-action="media.toggle" id="np-play">▶</button>
+          <button class="btn round" data-action="media.next">⏭</button>
+        </div>
+      </div>
+      <div class="col-right">
+        <div class="card vol-card">
+          <div class="card-title">Volume mestre <b id="master-pct" class="right">--%</b></div>
+          <div class="vol-row">
+            <button class="btn square" id="master-mute" data-action="audio.master.mute">🔊</button>
+            <div class="slider h" id="master-slider"><div class="fill"></div><div class="knob"></div></div>
+          </div>
+        </div>
+        <div class="card dev-card">
+          <div class="card-title">Saída de áudio</div>
+          <div id="devices" class="dev-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mixer -->
+    <section class="page" data-page="mixer">
+      <div class="card mixer-card">
+        <div id="mixer" class="mixer"></div>
+        <div class="mixer-nav">
+          <button class="btn square" id="mix-prev">◀</button>
+          <span id="mix-page" class="muted small">1/1</span>
+          <button class="btn square" id="mix-next">▶</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- League of Legends -->
+    <section class="page" data-page="lol">
+      <div class="card lol-status">
+        <div class="card-title">League of Legends</div>
+        <div id="lol-phase" class="lol-phase">—</div>
+        <div id="lol-sub" class="muted small lol-sub">&nbsp;</div>
+        <div class="lol-btns">
+          <button class="btn accent" data-action="lol.accept" id="lol-accept-btn">✔ Aceitar partida</button>
+          <button class="btn" id="lol-auto">🤖 Aceitar automático:&nbsp;<b id="lol-auto-state">não</b></button>
+          <button class="btn" data-action="lol.open_client">▶ Abrir cliente</button>
+          <button class="btn hold warn" data-action="lol.close_client">✕ Fechar cliente (segure)<b class="hold-fill"></b></button>
+        </div>
+      </div>
+      <div class="card lol-game">
+        <div class="card-title">
+          <button class="btn mini chip" id="lol-v-game">Partida</button>
+          <button class="btn mini chip" id="lol-v-build">Build</button>
+          <span id="lol-time" class="right muted">--:--</span>
+        </div>
+        <div id="lol-build" class="hidden">
+          <div id="lb-empty" class="lol-nogame muted">Escolha um campeão</div>
+          <div id="lb-body" class="hidden">
+            <div class="lb-head">
+              <div class="lol-champ sm"><img id="lb-champ-img" alt=""></div>
+              <div class="lb-info"><b id="lb-title" class="ellipsis">—</b><small id="lb-stats" class="muted">&nbsp;</small></div>
+              <button class="btn accent" id="lb-import" data-action="lol.import_runes">⬇ Importar runas</button>
+            </div>
+            <div class="lb-row"><span class="lb-label">Runas</span><div id="lb-runes" class="lb-icons"></div></div>
+            <div class="lb-row"><span class="lb-label">Feitiços</span><div id="lb-spells" class="lb-icons"></div>
+              <span class="lb-label lb-label2">Inicial</span><div id="lb-start" class="lb-icons"></div></div>
+            <div class="lb-row"><span class="lb-label">Core</span><div id="lb-core" class="lb-icons lb-arrows"></div>
+              <span class="lb-label lb-label2">Botas</span><div id="lb-boots" class="lb-icons"></div></div>
+            <div class="lb-row"><span class="lb-label">Opções</span><div id="lb-situ" class="lb-icons"></div></div>
+            <div class="lb-row"><span class="lb-label">Skills</span><div id="lb-skills" class="lb-skills"></div></div>
+            <div id="lb-src" class="muted small lb-src">&nbsp;</div>
+          </div>
+        </div>
+        <div id="lol-nogame" class="lol-nogame muted">Fora de partida</div>
+        <div id="lol-live" class="hidden">
+         <div class="lv-chips">
+          <button class="btn mini chip on" id="lv-c-sum">Resumo</button>
+          <button class="btn mini chip" id="lv-c-lane">Rota</button>
+          <button class="btn mini chip" id="lv-c-teams">Times</button>
+          <button class="btn mini chip" id="lv-c-obj">Objetivos</button>
+          <button class="btn mini chip" id="lv-c-feed">Eventos</button>
+         </div>
+         <div class="lv-body">
+          <div class="lv-sec" id="lv-sum">
+          <div class="lol-head">
+            <div class="lol-champ"><img id="lol-champ-img" alt=""><span id="lol-champ-ph">⚔️</span></div>
+            <div class="lol-head-info">
+              <div id="lol-champ" class="lol-champ-name">—</div>
+              <div class="muted">Nível <b id="lol-level">-</b> · <span id="lol-gold">0</span> de ouro</div>
+            </div>
+            <div class="lol-kda"><b id="lol-k">0</b>/<b id="lol-d" class="d">0</b>/<b id="lol-a">0</b><small id="lol-kda-ratio">KDA —</small></div>
+          </div>
+          <div class="lol-stats">
+            <div><small>CS</small><b id="lol-cs">0</b></div>
+            <div><small>CS/min</small><b id="lol-csm">0.0</b></div>
+            <div><small>Visão</small><b id="lol-ward">0</b></div>
+            <div><small>Participação</small><b id="lol-kp">0%</b></div>
+          </div>
+          <div class="lol-score">
+            <span class="blue">Azul <b id="lol-blue">0</b></span>
+            <div class="bar lol-score-bar"><i id="lol-score-bar"></i></div>
+            <span class="red"><b id="lol-red">0</b> Vermelho</span>
+          </div>
+          <div id="lv-dead" class="lv-line lv-dead hidden"></div>
+          <div id="lv-pace" class="lv-line">&nbsp;</div>
+          <div id="lv-next" class="lv-line hidden"></div>
+          <div class="lv-chart-wrap">
+            <div class="lv-chart-title muted">CS <i class="lv-key cs"></i> vs. meta <i class="lv-key ref"></i></div>
+            <svg id="lv-chart-cs" class="lv-chart" viewBox="0 0 300 56" preserveAspectRatio="none"></svg>
+          </div>
+          <div class="lv-chart-wrap">
+            <div class="lv-chart-title muted">Valor de itens: aliados − inimigos (estimativa)</div>
+            <svg id="lv-chart-val" class="lv-chart" viewBox="0 0 300 56" preserveAspectRatio="none"></svg>
+          </div>
+          </div>
+          <div class="lv-sec hidden" id="lv-lane"></div>
+          <div class="lv-sec hidden" id="lv-teams"></div>
+          <div class="lv-sec hidden" id="lv-obj"></div>
+          <div class="lv-sec hidden" id="lv-feed"></div>
+         </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Discord -->
+    <section class="page" data-page="discord">
+      <div class="card dc-side">
+        <div class="card-title">Discord</div>
+        <div id="dc-channel" class="dc-channel">—</div>
+        <div id="dc-sub" class="muted small dc-sub">&nbsp;</div>
+        <div class="dc-btns">
+          <button class="btn accent" data-action="discord.join_group">🎧 Entrar no grupo</button>
+          <button class="btn" data-action="discord.leave">⏏ Sair da call</button>
+          <div class="dc-row">
+            <button class="btn dc-big" id="dc-mute" data-action="discord.mute"><i>🎙️</i><span>Mute</span></button>
+            <button class="btn dc-big" id="dc-deaf" data-action="discord.deaf"><i>🎧</i><span>Ensurdecer</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="card dc-members-card">
+        <div class="card-title">Na call <span id="dc-count" class="right muted">0</span></div>
+        <div id="dc-members" class="dc-members"><div class="muted">Ninguém na call</div></div>
+      </div>
+    </section>
+
+    <!-- Claude -->
+    <section class="page" data-page="claude">
+      <div class="card cl-main">
+        <div class="card-title">Claude Code <span id="cl-hooks" class="muted small">hooks: —</span>
+          <button class="btn mini right" id="cl-remote">📱 Aprovar pelo iPad:&nbsp;<b id="cl-remote-state">não</b></button></div>
+        <div id="cl-perms" class="cl-perms"></div>
+        <div id="cl-sessions" class="cl-sessions"><div class="muted">Nenhuma sessão ainda</div></div>
+      </div>
+      <div class="cl-side">
+        <div class="card cl-usage">
+          <div class="card-title">Uso de tokens</div>
+          <div class="cl-usage-row"><span>Hoje</span><b id="cl-today">—</b></div>
+          <div class="cl-usage-row"><span>7 dias</span><b id="cl-week">—</b></div>
+          <div id="cl-top" class="cl-top muted small"></div>
+        </div>
+        <div class="card cl-launch">
+          <div class="card-title">Abrir</div>
+          <div id="cl-launch" class="cl-launch-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Atalhos -->
+    <section class="page" data-page="launcher">
+      <div id="launch-tabs" class="chips"></div>
+      <div id="launch-grid" class="launch-grid"></div>
+    </section>
+
+    <!-- Janelas -->
+    <section class="page" data-page="windows">
+      <div class="win-grid">
+        <button class="btn tile" data-action="win.desktop_prev"><i>◀</i><span>Desktop anterior</span></button>
+        <button class="btn tile" data-action="win.desktop_next"><i>▶</i><span>Próximo desktop</span></button>
+        <button class="btn tile" data-action="win.desktop_new"><i>＋</i><span>Novo desktop</span></button>
+        <button class="btn tile" data-action="win.task_view"><i>🗂️</i><span>Visão de tarefas</span></button>
+        <button class="btn tile" data-action="win.alt_tab"><i>⇆</i><span>Alt + Tab</span></button>
+        <button class="btn tile" data-action="win.minimize_all"><i>🖥️</i><span>Mostrar desktop</span></button>
+        <button class="btn tile" data-action="win.maximize"><i>⬆</i><span>Maximizar</span></button>
+        <button class="btn tile" data-action="win.snap_left"><i>◧</i><span>Encaixar ◀</span></button>
+        <button class="btn tile" data-action="win.snap_right"><i>◨</i><span>Encaixar ▶</span></button>
+        <button class="btn tile" data-action="win.explorer"><i>📁</i><span>Explorer</span></button>
+        <button class="btn tile" data-action="win.screenshot"><i>📸</i><span>Screenshot</span></button>
+        <button class="btn tile" data-action="win.snip"><i>✂️</i><span>Recorte</span></button>
+        <button class="btn tile" data-action="win.screenshots_folder"><i>🖼️</i><span>Pasta prints</span></button>
+        <button class="btn tile hold danger" data-action="win.close"><i>✕</i><span>Fechar janela</span><b class="hold-fill"></b></button>
+      </div>
+    </section>
+
+    <!-- Sistema -->
+    <section class="page" data-page="system">
+      <div class="card power-card">
+        <div class="card-title">Energia <span class="muted small right">segure para confirmar</span></div>
+        <div class="power-grid">
+          <button class="btn tile hold" data-action="power.lock" data-confirm="1"><i>🔒</i><span>Bloquear</span><b class="hold-fill"></b></button>
+          <button class="btn tile hold" data-action="power.sleep" data-confirm="1"><i>🌙</i><span>Suspender</span><b class="hold-fill"></b></button>
+          <button class="btn tile" data-action="power.monitor_off"><i>⏻</i><span>Desligar monitor</span></button>
+          <button class="btn tile hold warn" data-action="power.explorer" data-confirm="1"><i>🔄</i><span>Reiniciar Explorer</span><b class="hold-fill"></b></button>
+          <button class="btn tile hold warn" data-action="power.restart" data-confirm="1"><i>↻</i><span>Reiniciar</span><b class="hold-fill"></b></button>
+          <button class="btn tile hold danger" data-action="power.shutdown" data-confirm="1"><i>⏼</i><span>Desligar</span><b class="hold-fill"></b></button>
+        </div>
+      </div>
+      <div class="card screen-card">
+        <div class="card-title">Tela <button class="btn mini right" id="ddc-refresh">↻</button></div>
+        <div id="monitors" class="monitors"><div class="muted small">Carregando monitores…</div></div>
+        <div class="screen-btns">
+          <button class="btn" data-action="display.nightlight">🌗 Luz noturna</button>
+          <button class="btn" id="dim-toggle">🌑 Escurecer iPad</button>
+        </div>
+        <div id="sys-info" class="muted small sys-info"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== Abas ===== -->
+  <nav id="tabbar" class="glass">
+    <button class="tab active" data-tab="media"><i>🎵</i><span>Mídia</span></button>
+    <button class="tab" data-tab="mixer"><i>🎚️</i><span>Mixer</span></button>
+    <button class="tab" data-tab="lol"><i>⚔️</i><span>LoL</span></button>
+    <button class="tab" data-tab="discord"><i>🎧</i><span>Discord</span></button>
+    <button class="tab" data-tab="claude"><i>✳️</i><span>Claude</span><b id="claude-badge" class="badge hidden">0</b></button>
+    <button class="tab" data-tab="launcher"><i>🚀</i><span>Atalhos</span></button>
+    <button class="tab" data-tab="windows"><i>🪟</i><span>Janelas</span></button>
+    <button class="tab" data-tab="system"><i>⚡</i><span>Sistema</span></button>
+  </nav>
+</div>
+
+<!-- Painel de notificações (abre pelo sino) -->
+<div id="notif-panel" class="glass hidden">
+  <div class="card-title">Notificações <button class="btn mini right" id="notif-clear">Limpar</button></div>
+  <div id="notif-list"></div>
+</div>
+
+<!-- LoL: partida encontrada -->
+<div id="ready-modal" class="hidden">
+  <div class="ready-box">
+    <div class="ready-title">PARTIDA ENCONTRADA</div>
+    <div id="ready-timer" class="ready-timer">12</div>
+    <div class="ready-btns">
+      <button class="btn ready-accept" data-action="lol.accept">ACEITAR</button>
+      <button class="btn ready-decline" data-action="lol.decline">Recusar</button>
+    </div>
+  </div>
+</div>
+<div id="flash"></div>
+
+<div id="dimmer"></div>
+<div id="overlay"><div class="ov-box glass"><div class="spinner"></div><div id="overlay-msg">Conectando ao PC…</div></div></div>
+<div id="token-modal" class="hidden">
+  <div class="ov-box glass">
+    <div>O PC exige token (require_token). Informe o token do config.json</div>
+    <input id="token-input" type="text" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button class="btn accent" id="token-save">Conectar</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+{
+  "host": "0.0.0.0",
+  "port": 8765,
+  "token": "",
+  "require_token": false,
+  "tick_seconds": 1.0,
+  "lhm_url": "http://127.0.0.1:8085/data.json",
+  "lhm_path": "~/Downloads/LibreHardwareMonitor",
+  "lhm_minimized": true,
+  "gpu_name_filter": "9060",
+  "net_exclude": ["loopback", "vethernet", "virtualbox", "vmware", "bluetooth"],
+  "screenshot_dir": "",
+  "audio_device_hide": ["steam streaming"],
+  "night_dim": { "enabled": false, "start": "23:00", "end": "07:00", "opacity": 0.75 },
+  "lol": {
+    "dir": "C:/Riot Games/League of Legends",
+    "riot_client": "C:/Riot Games/Riot Client/RiotClientServices.exe",
+    "auto_accept": false,
+    "game_mode": { "switch_tab": "lol", "volumes": { "spotify.exe": 0.3, "discord.exe": 1.0 } },
+    "live": {
+      "idle_gold_threshold": 1300,
+      "idle_gold_seconds": 20,
+      "benchmarks": { "top": 7.0, "jungle": 5.0, "mid": 7.0, "adc": 7.5, "support": 1.5 },
+      "alerts": { "objective": true, "idle_gold": true, "death": false, "ace": false, "inhib": false }
+    }
+  },
+  "discord": {
+    "client_id": "",
+    "client_secret": "",
+    "group_channel_id": "",
+    "redirect_uri": "http://localhost"
+  },
+  "claude": {
+    "trusted_ips": [],
+    "projects": ["~/Documents/projs/ipad-pc-control"],
+    "app_id": "Claude_pzs8sxrjxfjjc!Claude"
+  },
+  "launcher": [
+    {
+      "name": "Apps",
+      "buttons": [
+        { "id": "chrome",   "label": "Chrome",       "icon": "🌐", "type": "app",    "target": "chrome.exe" },
+        { "id": "discord",  "label": "Discord",      "icon": "💬", "type": "url",    "target": "discord://" },
+        { "id": "spotify",  "label": "Spotify",      "icon": "🎵", "type": "url",    "target": "spotify:" },
+        { "id": "steam",    "label": "Steam",        "icon": "🎮", "type": "url",    "target": "steam://open/main" },
+        { "id": "vscode",   "label": "VS Code",      "icon": "🧑‍💻", "type": "app",  "target": "code" },
+        { "id": "terminal", "label": "Terminal",     "icon": "⌨️", "type": "app",    "target": "wt.exe" },
+        { "id": "notepad",  "label": "Bloco de Notas","icon": "📝", "type": "app",   "target": "notepad.exe" },
+        { "id": "calc",     "label": "Calculadora",  "icon": "🧮", "type": "app",    "target": "calc.exe" },
+        { "id": "taskmgr",  "label": "Gerenciador",  "icon": "📊", "type": "keys",   "keys": "ctrl+shift+esc" },
+        { "id": "settings", "label": "Configurações","icon": "⚙️", "type": "url",    "target": "ms-settings:" }
+      ]
+    },
+    {
+      "name": "Pastas & Sites",
+      "buttons": [
+        { "id": "downloads", "label": "Downloads", "icon": "📥", "type": "folder", "target": "~/Downloads" },
+        { "id": "docs",      "label": "Documentos","icon": "📁", "type": "folder", "target": "~/Documents" },
+        { "id": "projs",     "label": "Projetos",  "icon": "🗂️", "type": "folder", "target": "~/Documents/projs" },
+        { "id": "youtube",   "label": "YouTube",   "icon": "▶️", "type": "url",    "target": "https://youtube.com" },
+        { "id": "github",    "label": "GitHub",    "icon": "🐙", "type": "url",    "target": "https://github.com" },
+        { "id": "gmail",     "label": "Gmail",     "icon": "✉️", "type": "url",    "target": "https://mail.google.com" }
+      ]
+    },
+    {
+      "name": "Macros & Scripts",
+      "buttons": [
+        { "id": "copy",       "label": "Copiar",         "icon": "📋", "type": "keys",  "keys": "ctrl+c" },
+        { "id": "paste",      "label": "Colar",          "icon": "📌", "type": "keys",  "keys": "ctrl+v" },
+        { "id": "undo",       "label": "Desfazer",       "icon": "↩️", "type": "keys",  "keys": "ctrl+z" },
+        { "id": "mute_mic_discord", "label": "Mute Discord", "icon": "🎙️", "type": "keys", "keys": "ctrl+shift+m" },
+        { "id": "emoji",      "label": "Emojis",         "icon": "😀", "type": "keys",  "keys": "win+." },
+        { "id": "clipboard",  "label": "Histórico Clip", "icon": "🧾", "type": "keys",  "keys": "win+v" },
+        { "id": "sig",        "label": "Assinatura",     "icon": "✍️", "type": "macro",
+          "steps": [ { "text": "Atenciosamente," }, { "keys": "enter" }, { "text": "Seu Nome" } ] },
+        { "id": "run_notepad","label": "Win+R Notepad",  "icon": "🚀", "type": "macro",
+          "steps": [ { "keys": "win+r" }, { "delay": 350 }, { "text": "notepad" }, { "keys": "enter" } ] },
+        { "id": "flushdns",   "label": "Flush DNS",      "icon": "🧹", "type": "script",
+          "target": "scripts/flush_dns.bat", "hidden": true },
+        { "id": "ps_example", "label": "Script PS1",     "icon": "🐚", "type": "script",
+          "target": "scripts/exemplo.ps1", "confirm": true }
+      ]
+    }
+  ]
+}
