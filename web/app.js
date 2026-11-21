@@ -593,6 +593,7 @@
     renderAudio(st.audio);
     renderMedia(st.media);
     renderLol(window.__ccLolOverride || st.lol);  // override só para depuração/simulação
+    renderFla(window.__ccFlaOverride || st.fla);
     renderDiscord(st.discord);
     renderClaude(st.claude);
   }
@@ -1075,6 +1076,185 @@
       toast(v ? 'Aceitar automático ligado' : 'Aceitar automático desligado');
     }).catch(function (e) { toast(e.message, true); });
   };
+
+  // ---------------------------------------------------------------- Flamengo (placar ao vivo)
+  var FLA_TABS = ['stats', 'lineups', 'comm', 'games', 'table'];
+  var flaTab = 'stats', flaLast = null, flaSig = {};
+  var flaClock = { running: false, base: 0, at: 0, period: 0, display: '' };   // relógio interpolado
+  var flaCd = { in_s: null, at: 0 };                                            // contagem para o próximo jogo
+  var FLA_ICON = { goal: '⚽', pen_goal: '⚽', own_goal: '⚽', yellow: '🟨', red: '🟥', sub: '🔁', pen_miss: '❌',
+    var: '📺', period: '⏱' };
+  var WEEKDAY = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  FLA_TABS.forEach(function (k) {
+    clickHandlers['fla-c-' + k] = function () { flaTab = k; if (flaLast) renderFlaSide(flaLast, true); };
+  });
+  function crest(t, cls) { return bgIcon(t && t.logo, 'fla-crest' + (cls ? ' ' + cls : ''), t && t.name); }
+  function pad2(n) { return ('0' + n).slice(-2); }
+  function fmtDate(ts) {
+    if (!ts) return '';
+    var d = new Date(ts * 1000);
+    return WEEKDAY[d.getDay()] + ', ' + pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + '<br>' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+  function fmtCountdown(s) {
+    s = Math.max(0, Math.round(s));
+    var d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+    if (d) return d + 'd ' + h + 'h';
+    if (h) return h + 'h ' + pad2(m) + 'min';
+    return m + ':' + pad2(s % 60);
+  }
+  // Minuto de jogo a partir de segundos, respeitando acréscimos: 45'+2', 90'+4'.
+  function fmtMatchClock(secs, period) {
+    var caps = { 1: 45, 2: 90, 3: 105, 4: 120 }, cap = caps[period] || 120;
+    var m = Math.floor(secs / 60);
+    if (m >= cap) return cap + "'+" + (m - cap) + "'";
+    return pad2(m) + ':' + pad2(Math.floor(secs % 60));
+  }
+  function flaTick() {
+    var el = $('#fla-clock');
+    if (el && flaClock.running) {
+      var extra = Math.min(120, (Date.now() - flaClock.at) / 1000);   // não inventa tempo se o servidor parou
+      setText(el, fmtMatchClock(flaClock.base + extra, flaClock.period));
+    }
+    var cd = $('#fla-cd');
+    if (cd && flaCd.in_s != null) setText(cd, fmtCountdown(flaCd.in_s - (Date.now() - flaCd.at) / 1000));
+  }
+  setInterval(flaTick, 1000);
+
+  function renderFla(f) {
+    if (!f) return;
+    flaLast = f;
+    var L = f.live;
+    setText($('#fla-league'), L ? L.league : '');
+    var st = L && L.status;
+    flaClock.running = !!(st && st.running); flaClock.period = st ? st.period : 0;
+    flaClock.base = st ? st.clock + (L.age || 0) : 0; flaClock.at = Date.now();
+    var nx = f.next && f.next[0];
+    flaCd.in_s = nx && nx.in_s != null ? nx.in_s : null; flaCd.at = Date.now();
+    renderFlaScore(f);
+    renderFlaTimeline(f);
+    renderFlaSide(f, false);
+    flaTick();
+  }
+  window.__ccRenderFla = function (f) { renderFla(f); };   // depuração: simular jogos
+
+  function renderFlaScore(f) {
+    var L = f.live, el = $('#fla-score'), sig;
+    if (L) sig = JSON.stringify([L.id, L.home, L.away, L.status.label, L.status.state, L.status.running, L.venue]);
+    else sig = JSON.stringify([f.next && f.next[0], f.last && f.last[0], f.error]);
+    if (flaSig.score === sig) return;
+    flaSig.score = sig;
+    if (L) {
+      el.innerHTML = '<div class="fla-teams"><div class="fla-team">' + crest(L.home) + '<b>' + esc(L.home.name) + '</b></div>' +
+        '<div class="fla-mid"><div class="fla-goals">' + (L.home.score == null ? '-' : L.home.score) + '<small>x</small>' +
+        (L.away.score == null ? '-' : L.away.score) + '</div>' +
+        '<div class="fla-status">' + (L.status.state === 'in' && L.status.running ? '<span id="fla-clock" class="fla-clock live">' + esc(L.status.display) + '</span> · ' : '<span id="fla-clock"></span>') +
+        esc(L.status.label) + '</div></div>' +
+        '<div class="fla-team">' + crest(L.away) + '<b>' + esc(L.away.name) + '</b></div></div>' +
+        '<div class="fla-meta muted">' + esc(L.venue) + '</div>';
+      return;
+    }
+    var n = f.next && f.next[0], l = f.last && f.last[0], html = '';
+    if (n) {
+      html += '<div class="fla-status muted">Próximo jogo · ' + esc(n.league) + '</div>' +
+        '<div class="fla-teams"><div class="fla-team">' + crest(n.home) + '<b>' + esc(n.home.name) + '</b></div>' +
+        '<div class="fla-mid"><div class="fla-big" id="fla-cd">—</div><div class="fla-meta muted">' + fmtDate(n.ts).replace('<br>', ' · ') + '</div></div>' +
+        '<div class="fla-team">' + crest(n.away) + '<b>' + esc(n.away.name) + '</b></div></div>';
+    } else html += '<div class="fla-empty">' + esc(f.error || 'Sem jogos agendados') + '</div>';
+    el.innerHTML = html;
+  }
+
+  function evText(e, teamId) {
+    var who = esc(e.player), lbl = esc(e.label);
+    if (e.kind === 'sub') return '<span class="t">' + who + ' entra<small>sai ' + esc(e.other) + '</small></span>';
+    if (e.kind === 'goal' || e.kind === 'pen_goal' || e.kind === 'own_goal') {
+      return '<span class="t"><b>' + lbl + '</b> · ' + who + (e.other ? '<small>assist. ' + esc(e.other) + '</small>' : '') + '</span>';
+    }
+    if (e.player) return '<span class="t">' + lbl + ' · ' + who + '</span>';
+    return '<span class="t">' + lbl + '</span>';
+  }
+  function renderFlaTimeline(f) {
+    var L = f.live, el = $('#fla-tl');
+    var sig = JSON.stringify(L ? L.events : (f.last || [])[0]);
+    if (flaSig.tl === sig) return;
+    flaSig.tl = sig;
+    if (!L) {
+      var g = (f.last || [])[0];
+      el.innerHTML = g ? '<div class="muted small" style="margin-bottom:6px">Último jogo · ' + esc(g.league) + '</div>' +
+        '<div class="fla-game"><span class="d">' + fmtDate(g.ts) + '</span><span class="t">' + esc(g.home.name) + ' x ' + esc(g.away.name) + '</span>' +
+        '<span class="s">' + (g.home.score == null ? '-' : g.home.score) + ' x ' + (g.away.score == null ? '-' : g.away.score) + '</span>' +
+        '<span class="fla-badge ' + g.result + '" style="margin:0 0 0 8px">' + g.result + '</span></div>' : '<div class="fla-empty">Sem jogo em andamento</div>';
+      return;
+    }
+    var evs = L.events.slice().reverse();
+    el.innerHTML = evs.length ? evs.map(function (e) {
+      var side = e.team_id === f.team_id ? 'ours' : (e.team_id ? 'theirs' : '');
+      return '<div class="fla-ev ' + side + '"><span class="m">' + esc(e.minute) + '</span><span class="i">' + (FLA_ICON[e.kind] || '•') + '</span>' + evText(e, f.team_id) + '</div>';
+    }).join('') : '<div class="fla-empty">Nenhum lance ainda</div>';
+  }
+
+  function renderFlaSide(f, force) {
+    FLA_TABS.forEach(function (k) { $('#fla-c-' + k).classList.toggle('on', k === flaTab); });
+    var L = f.live, el = $('#fla-side');
+    var part = { stats: L && L.stats, lineups: L && L.lineups, comm: L && L.commentary,
+      games: [f.next, f.last, f.form], table: L && L.table }[flaTab];
+    var sig = flaTab + JSON.stringify(part || null) + (L ? L.home.abbr + L.away.abbr : '');
+    if (!force && flaSig.side === sig) return;
+    flaSig.side = sig;
+    var fn = { stats: flaStats, lineups: flaLineups, comm: flaComm, games: flaGames, table: flaTable }[flaTab];
+    el.innerHTML = fn(f, L);
+    el.scrollTop = 0;
+  }
+  function noGame(msg) { return '<div class="fla-empty">' + esc(msg || 'Disponível quando houver jogo') + '</div>'; }
+
+  function flaStats(f, L) {
+    if (!L || !L.stats.length) return noGame('Estatísticas aparecem quando o jogo começa');
+    var oursHome = L.home.id === f.team_id;
+    var out = '<div class="fla-heads"><span>' + crest(L.home, 'sm') + ' ' + esc(L.home.abbr) + '</span><span>' + esc(L.away.abbr) + ' ' + crest(L.away, 'sm') + '</span></div>';
+    L.stats.forEach(function (r) {
+      var share = Math.round(r.share * 100);
+      var pct = r.pct ? '%' : '';
+      out += '<div class="fla-stat"><div class="row"><b>' + esc(r.home) + pct + '</b><span class="lbl">' + esc(r.label) + '</span><b>' + esc(r.away) + pct + '</b></div>' +
+        '<div class="fla-bar" style="background:' + (oursHome ? 'var(--cyan)' : 'var(--red)') + '"><i style="width:' + share + '%;background:' + (oursHome ? 'var(--red)' : 'var(--cyan)') + '"></i></div></div>';
+    });
+    return out;
+  }
+  function flaLineups(f, L) {
+    if (!L || !L.lineups.length) return noGame('Escalações saem cerca de 1 hora antes do jogo');
+    return '<div class="fla-cols">' + L.lineups.map(function (t) {
+      var pl = function (p) { return '<div class="fla-pl' + (p.out ? ' out' : '') + '"><b>' + esc(p.n) + '</b>' + esc(p.name) + (p.out ? ' ⬇' : '') + (p.in ? ' ⬆' : '') + '</div>'; };
+      return '<div><h4>' + esc(t.abbr) + ' · ' + esc(t.formation) + '</h4>' + t.starters.map(pl).join('') +
+        '<h4 style="margin-top:10px">Reservas</h4>' + t.subs.map(pl).join('') + '</div>';
+    }).join('') + '</div>';
+  }
+  function flaComm(f, L) {
+    if (!L || !L.commentary.length) return noGame('A narração aparece quando o jogo começa');
+    return L.commentary.map(function (c) {
+      return '<div class="fla-ev"><span class="m">' + esc(c.min) + '</span><span class="t">' + esc(c.text) + '</span></div>';
+    }).join('');
+  }
+  function flaGames(f) {
+    var out = '';
+    if (f.form) out += '<div class="fla-form">' + f.form.split('').map(function (r) { return '<span class="fla-badge ' + r + '">' + r + '</span>'; }).join('') + '<span class="muted small"> últimos jogos (recente à esquerda)</span></div>';
+    out += '<h4 class="muted small" style="margin:6px 0">Próximos</h4>';
+    out += (f.next || []).length ? f.next.map(function (g) {
+      return '<div class="fla-game"><span class="d">' + fmtDate(g.ts) + '</span><span class="t">' + esc(g.home.name) + ' x ' + esc(g.away.name) + '<small>' + esc(g.league) + '</small></span></div>';
+    }).join('') : '<div class="muted small">Nenhum jogo agendado</div>';
+    out += '<h4 class="muted small" style="margin:12px 0 6px">Resultados</h4>';
+    out += (f.last || []).map(function (g) {
+      return '<div class="fla-game"><span class="d">' + fmtDate(g.ts) + '</span><span class="t">' + esc(g.home.name) + ' x ' + esc(g.away.name) + '<small>' + esc(g.league) + '</small></span>' +
+        '<span class="s">' + (g.home.score == null ? '-' : g.home.score) + ' x ' + (g.away.score == null ? '-' : g.away.score) + '</span>' +
+        '<span class="fla-badge ' + g.result + '" style="margin:0 0 0 8px">' + g.result + '</span></div>';
+    }).join('');
+    return out;
+  }
+  function flaTable(f, L) {
+    if (!L || !L.table.length) return noGame('Tabela disponível durante jogos de pontos corridos');
+    return '<table class="fla-tb"><tr><th>#</th><th>Time</th><th>P</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th></tr>' +
+      L.table.map(function (r) {
+        return '<tr class="' + (r.id === f.team_id ? 'me' : '') + '"><td>' + r.rank + '</td><td>' + esc(r.name) + '</td><td>' + esc(r.pts) + '</td><td>' + esc(r.j) +
+          '</td><td>' + esc(r.v) + '</td><td>' + esc(r.e) + '</td><td>' + esc(r.d) + '</td><td>' + esc(r.sg) + '</td></tr>';
+      }).join('') + '</table>';
+  }
 
   // ---------------------------------------------------------------- Discord
   var dcSig = '', dcSliders = {};

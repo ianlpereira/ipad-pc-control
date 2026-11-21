@@ -171,6 +171,22 @@ Usa as APIs locais oficiais do cliente (LCU) e da partida (Live Client Data). S�
 - **Análise ao vivo:** durante a partida, a aba LoL ganha cinco visões: **Resumo** (ritmo de CS contra a meta da posição, CS aos 10 e 15 min, ouro parado e próximo item da build, gráficos), **Rota** (você contra o oponente da mesma posição), **Times** (placar, valor de itens, composição e dica de armadura ou resistência mágica), **Objetivos** (contagem regressiva de dragão e barão, almas, inibidores) e **Eventos**. Tudo vem da Live Client Data API, só com informação que o jogo já mostra a todos: sem cooldown de inimigos nem rastreio de selva. Valor de itens e dano inimigo são **estimativas**. Os tempos de respawn de objetivos ficam no topo de `server/modules/lol_live.py` e dependem do patch. Ajustes opcionais em `lol.live` (veja `config.example.json`): metas de CS/min por posição, limite de ouro parado e quais alertas notificar (`objective`, `idle_gold`, `death`, `ace`, `inhib`).
 - **Fechar cliente:** segure o botão. Fecha o cliente do LoL e o Riot Client, que ficam ocupando CPU e RAM sem fazer nada. Fica bloqueado durante a partida.
 
+### Flamengo (placar ao vivo)
+
+A aba **Flamengo** mostra o jogo em andamento: placar, relógio, lances (gols, cartões, substituições), estatísticas, escalações, narração e a tabela do campeonato. Fora de jogo, mostra a contagem para o próximo jogo e o último resultado; a visão **Jogos** lista os próximos e os últimos resultados com a sequência de V/E/D. Cobre todas as competições do time (Brasileirão, Libertadores, Copa do Brasil, estaduais).
+
+```json
+"flamengo": {
+  "team_id": "819",
+  "auto_switch": false,
+  "alerts": { "goal": true, "kickoff": true, "red_card": true, "period": true, "final": true }
+}
+```
+
+- **Fonte:** API pública do ESPN, sem chave. **Não é oficial** e pode mudar sem aviso; nesse caso a aba mantém o último valor e mostra "Placar indisponível". O placar tem atraso de algumas dezenas de segundos em relação à TV. O servidor consulta a cada 10 s durante o jogo e bem mais devagar fora dele.
+- **Alertas:** gol do Flamengo toca som e destaca a tela; gol do adversário, início, intervalo, vermelho e fim de jogo avisam em silêncio (vermelho do seu time com som). Cada tipo liga e desliga em `alerts`. Ao ligar o servidor no meio do jogo, ele não avisa lances que já aconteceram.
+- **`team_id`:** o id do time no ESPN (Flamengo = 819), para acompanhar outro time. **`auto_switch`:** o iPad vai para a aba no gol e no início do jogo.
+
 ### Discord (painel do grupo)
 
 O Discord só libera controle de voz (RPC) para apps do próprio usuário. Configure uma vez:

@@ -24,6 +24,11 @@
       "alerts": { "objective": true, "idle_gold": true, "death": false, "ace": false, "inhib": false }
     }
   },
+  "flamengo": {
+    "team_id": "819",
+    "auto_switch": false,
+    "alerts": { "goal": true, "kickoff": true, "red_card": true, "period": true, "final": true }
+  },
   "discord": {
     "client_id": "",
     "client_secret": "",

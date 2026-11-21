@@ -25,6 +25,7 @@ from .modules import audio as audio_mod
 from .modules import display, launcher as launcher_mod, media as media_mod, power, windows
 from .modules import claude as claude_mod
 from .modules import discord_rpc as discord_mod
+from .modules import flamengo as flamengo_mod
 from .modules import lol as lol_mod
 from .modules import notify as notify_mod
 from .modules.notify import notifier
@@ -81,6 +82,10 @@ async def _start_discord() -> None:
 
 
 STARTUP_HOOKS.append(_start_discord)
+
+fla = flamengo_mod.register(dispatcher, cfg)
+STATE_PROVIDERS["fla"] = (fla.state, 1.0)
+STARTUP_HOOKS.append(fla.start)   # poll do placar em segundo plano
 
 
 async def _ping(v: Any) -> Any:
@@ -180,6 +185,7 @@ async def lifespan(_app: FastAPI):
     yield
     task.cancel()
     await lol.shutdown()  # se o servidor fechar no meio da partida, devolve os volumes
+    await fla.shutdown()
     await hub.telemetry.close()
 
 
