@@ -489,7 +489,7 @@ button { font: inherit; color: inherit; border: 0; background: none; outline: no
 .lol-btns > * + *, .dc-btns > * + * { margin-top: 8px; }
 .btn.on #lol-auto-state { color: var(--green); }
 .lol-game { overflow: hidden; }
-.lol-nogame { height: calc(var(--card-h) - 56px); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.lol-nogame { height: calc(var(--card-h) - var(--chrome, 56px)); display: flex; align-items: center; justify-content: center; font-size: 22px; }
 .lol-head { display: flex; align-items: center; }
 .lol-head > * + * { margin-left: 16px; }
 .lol-champ { width: 84px; height: 84px; border-radius: 16px; overflow: hidden; flex-shrink: 0; position: relative;
@@ -608,7 +608,7 @@ button { font: inherit; color: inherit; border: 0; background: none; outline: no
 .lv-chips { display: flex; height: 28px; margin-bottom: 8px; }
 .lv-chips > * + * { margin-left: 6px; }
 .lv-chips .btn.mini { height: 28px; padding: 0 12px; }
-.lv-body { height: calc(var(--card-h) - 56px - 36px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.lv-body { height: calc(var(--card-h) - var(--chrome, 56px) - var(--chips, 36px)); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .lv-body .lol-nogame { height: 120px; font-size: 16px; }
 .lv-line { margin-top: 10px; font-size: 14px; line-height: 1.4; }
 .lv-line.warn { background: rgba(251, 191, 36, .14); border-radius: 10px; padding: 8px 10px; }
@@ -712,3 +712,35 @@ button { font: inherit; color: inherit; border: 0; background: none; outline: no
 .fla-tb td:nth-child(2), .fla-tb th:nth-child(2) { text-align: left; }
 .fla-tb tr.me td { background: rgba(248, 113, 113, .16); font-weight: 700; }
 @media (orientation: portrait) { .page[data-page="fla"] { grid-template-columns: 1fr; } }
+
+/* ---------- LoL em partida: telemetria some na aba LoL e as abas ficam maiores ---------- */
+#app.game-focus { grid-template-rows: calc(44px + var(--safe-top)) 0 1fr calc(74px + var(--safe-bottom)); }
+#app.game-focus #telemetry { visibility: hidden; overflow: hidden; }
+.page[data-page="lol"].lol-ingame { grid-template-columns: .75fr 2fr; --chrome: 68px; --chips: 52px; }
+.lol-ingame .lol-game .card-title { height: 36px; }
+.lol-ingame .lol-game .card-title .btn.mini { height: 36px; padding: 0 16px; font-size: 15px; }
+.lol-ingame .lv-chips { height: 44px; }
+.lol-ingame .lv-chips .btn.mini { height: 44px; padding: 0 18px; font-size: 16px; }
+.lol-ingame .lv-line { font-size: 16px; }
+.lol-ingame .lv-rowx { font-size: 17px; }
+.lol-ingame .lv-rowx .lv-d { font-size: 13px; width: 110px; }
+.lol-ingame .lv-pic { width: 36px; height: 36px; }
+.lol-ingame .lv-ic { width: 28px; height: 28px; }
+.lol-ingame .lv-pl { height: 40px; font-size: 15px; }
+.lol-ingame .lv-th { font-size: 12px; height: 18px; }
+.lol-ingame .lv-kda { width: 84px; }
+.lol-ingame .lv-lv { width: 34px; }
+.lol-ingame .lv-cs { width: 48px; }
+.lol-ingame .lv-val { width: 56px; }
+.lol-ingame .lv-sumline { font-size: 16px; }
+.lol-ingame .lv-ev { font-size: 16px; padding: 11px 0; }
+.lol-ingame .lv-pill { font-size: 13px; padding: 3px 9px; }
+.lol-ingame .lv-chart { height: 72px; }
+.lol-ingame .lv-chart-title { font-size: 12px; }
+.lol-ingame .lol-stats { grid-template-rows: 84px; }
+.lol-ingame .lol-stats b { font-size: 30px; }
+.lol-ingame .lol-nogame { font-size: 18px; }
+@media (orientation: portrait) { .page[data-page="lol"].lol-ingame { grid-template-columns: 1fr; } }
+
+/* Rolagem só onde marcado: o body bloqueia gestos (touch-action: none). */
+.scrollable { overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }

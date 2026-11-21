@@ -4,8 +4,23 @@
     {
       "name": "control-center-local",
       "runtimeExecutable": "cmd.exe",
-      "runtimeArgs": ["/c", "set CC_HOST=127.0.0.1&& set CC_PORT=8766&& .venv\\Scripts\\python.exe -m server.main"],
+      "runtimeArgs": [
+        "/c",
+        "set CC_HOST=127.0.0.1&& set CC_PORT=8766&& .venv\\Scripts\\python.exe -m server.main"
+      ],
       "port": 8766
+    },
+    {
+      "name": "web-static",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8767",
+        "--directory",
+        "web"
+      ],
+      "port": 8767
     }
   ]
 }

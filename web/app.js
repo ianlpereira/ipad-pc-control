@@ -284,7 +284,21 @@
 
   // Bloqueia gestos nativos (zoom por pinça, rubber-band).
   document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
-  document.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+  // Nada rola, exceto listas marcadas com .scrollable que realmente passam da altura (análise do LoL, Flamengo).
+  function scrollableOf(t) {
+    var sc = t && t.closest ? t.closest('.scrollable') : null;
+    return sc && sc.scrollHeight > sc.clientHeight + 1 ? sc : null;
+  }
+  document.addEventListener('touchstart', function (e) {
+    var sc = scrollableOf(e.target);   // nas pontas, afasta 1 px para o gesto não "vazar" para a página
+    if (!sc) return;
+    if (sc.scrollTop <= 0) sc.scrollTop = 1;
+    else if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight) sc.scrollTop = sc.scrollHeight - sc.clientHeight - 1;
+  }, { passive: true });
+  document.addEventListener('touchmove', function (e) {
+    if (scrollableOf(e.target)) return;
+    e.preventDefault();
+  }, { passive: false });
   document.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 
   function payloadFor(btn) {
@@ -371,6 +385,7 @@
     $$('.tab').forEach(function (t) { t.classList.toggle('active', t.dataset.tab === name); });
     $$('.page').forEach(function (p) { p.classList.toggle('active', p.dataset.page === name); });
     store('cc_tab', name);
+    applyGameFocus();
     if (name === 'system' && !monitorsLoaded) loadMonitors();
     if (name === 'media' || name === 'mixer') { lastDevSig = ''; lastMixSig = ''; if (lastState) renderAudio(lastState.audio); }
   }
@@ -773,6 +788,20 @@
     PreEndOfGame: 'Fim de jogo', EndOfGame: 'Fim de jogo'
   };
   var lolChampId = null, lolAuto = false;
+  // Em partida, na aba LoL, a telemetria do topo some para dar altura às abas de análise.
+  var lolInGame = false, lolFocusOff = store('cc_lol_focus') === 'off';
+  function applyGameFocus() {
+    var on = currentTab === 'lol' && lolInGame && !lolFocusOff, app = $('#app');
+    if (app.classList.contains('game-focus') === on) return;
+    app.classList.toggle('game-focus', on);
+    fixGridRows();   // re-mede a altura das abas (--page-h)
+  }
+  clickHandlers['lol-focus'] = function () {
+    lolFocusOff = !lolFocusOff;
+    store('cc_lol_focus', lolFocusOff ? 'off' : 'on');
+    $('#lol-focus').classList.toggle('on', !lolFocusOff);
+    applyGameFocus();
+  };
   var lolImg = $('#lol-champ-img');
   lolImg.onload = function () { lolImg.parentNode.classList.add('has-img'); };
   lolImg.onerror = function () { lolImg.parentNode.classList.remove('has-img'); };
@@ -798,6 +827,11 @@
     if (modal) setText($('#ready-timer'), Math.max(0, Math.ceil(rc.remaining)));
 
     var g = l.game;
+    lolInGame = !!g;
+    $('.page[data-page="lol"]').classList.toggle('lol-ingame', lolInGame);
+    $('#lol-focus').classList.toggle('hidden', !lolInGame);
+    $('#lol-focus').classList.toggle('on', !lolFocusOff);
+    applyGameFocus();
     var view = lolViewFor(l);
     $('#lol-v-game').classList.toggle('on', view === 'game');
     $('#lol-v-build').classList.toggle('on', view === 'build');
