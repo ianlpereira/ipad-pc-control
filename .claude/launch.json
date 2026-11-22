@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "docs-site",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "http.server", "8769", "--directory", "docs"],
+      "port": 8769
+    },
+    {
       "name": "control-center-local",
       "runtimeExecutable": "cmd.exe",
       "runtimeArgs": [

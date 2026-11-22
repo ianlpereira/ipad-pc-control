@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PC Control Center — seu iPad como Stream Deck do Windows</title>
+  <meta name="description" content="Transforme um iPad (ou qualquer tablet) num painel de controle do PC: volume por app, música, temperaturas, atalhos, League of Legends, placar de futebol, Discord e Claude Code. Instala com dois cliques.">
+  <meta property="og:title" content="PC Control Center — seu iPad como Stream Deck do Windows">
+  <meta property="og:description" content="Volume por app, música, telemetria, atalhos, LoL, futebol ao vivo, Discord e Claude Code no iPad. Sem app, sem jailbreak.">
+  <meta property="og:image" content="assets/og.jpg">
+  <meta name="theme-color" content="#070a0f">
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-in">
+      <a class="brand" href="#top"><img src="assets/icon.png" alt=""><span>PC Control Center</span></a>
+      <span class="badge">Windows 10/11 · iPad</span>
+      <nav class="nav-links">
+        <a href="#instalar">Instalar</a>
+        <a href="#recursos">Recursos</a>
+        <a href="#duvidas">Dúvidas</a>
+        <a class="btn ghost sm" href="https://github.com/ianlpereira/ipad-pc-control">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- ================================================================ HERO -->
+    <section class="wrap hero">
+      <span class="pill"><i class="dot"></i>Código aberto · sem app · sem jailbreak</span>
+      <h1>Aquele iPad parado na gaveta <span class="grad">vira o Stream Deck do seu PC.</span></h1>
+      <p class="lead">Volume de cada app, música tocando, temperaturas, atalhos e macros num toque, direto do Safari. Abas extras para League of Legends, placar de futebol ao vivo, Discord e Claude Code. No PC, dois cliques e um assistente que configura o resto.</p>
+      <div class="cta">
+        <a class="btn primary" href="#instalar">Instalar em 5 minutos <span aria-hidden="true">↓</span></a>
+        <a class="btn ghost" href="#preview"><span class="play">▶</span> Ver o painel</a>
+      </div>
+      <p class="credit">Feito para o iPad Air 2 (iPadOS 15) e testado no dia a dia · funciona em qualquer tablet ou celular com navegador</p>
+    </section>
+
+    <!-- ================================================================ PREVIEW -->
+    <section class="wrap" id="preview">
+      <div class="preview-head">
+        <span class="mono">Capturas reais do painel · dados de demonstração</span>
+        <div class="seg" role="tablist" id="shot-tabs">
+          <button class="on" data-shot="media">Mídia</button>
+          <button data-shot="mixer">Mixer</button>
+          <button data-shot="lol-teams">LoL</button>
+          <button data-shot="lol-build">Build</button>
+          <button data-shot="fla">Futebol</button>
+          <button data-shot="discord">Discord</button>
+          <button data-shot="claude">Claude</button>
+          <button data-shot="launcher">Atalhos</button>
+          <button data-shot="system">Sistema</button>
+        </div>
+      </div>
+      <div class="device">
+        <img id="shot" src="assets/shots/media.webp" width="1600" height="1200"
+             alt="Painel do PC Control Center no iPad: aba Mídia com música, volume e saída de áudio">
+      </div>
+      <p class="shot-caption" id="shot-caption">Música atual com capa e controles, volume mestre e troca de saída de áudio com um toque. CPU, GPU, RAM, temperaturas e rede ficam sempre no topo.</p>
+    </section>
+
+    <!-- ================================================================ STATS -->
+    <section class="wrap stats">
+      <div class="stat"><b>1–15 ms</b><span>de latência na rede local, medida e mostrada no topo do painel</span></div>
+      <div class="stat"><b>0 apps</b><span>para instalar no iPad: é uma página no Safari, em tela cheia</span></div>
+      <div class="stat"><b>2 cliques</b><span>no <code>start.bat</code>: instala tudo e abre o assistente</span></div>
+      <div class="stat"><b>9 abas</b><span>e só as que você quiser: LoL, futebol, Discord e Claude são opcionais</span></div>
+    </section>
+
+    <!-- ================================================================ CONFIGURADOR -->
+    <section class="wrap section" id="instalar">
+      <p class="eyebrow">Passo 01 · Configurador</p>
+      <h2>Escolha as abas e copie o passo a passo.</h2>
+      <p class="sub">Responda em 15 segundos. Do lado sai o comando para colar no PowerShell, ou um prompt para o Claude Code te guiar em cada clique. O assistente do <code>start.bat</code> pergunta as mesmas coisas, então você pode só seguir os passos também.</p>
+
+      <div class="config">
+        <div class="config-form">
+          <div class="q">
+            <h3><span class="n">1</span> Quais abas extras você quer?</h3>
+            <p>Mídia, Mixer, Atalhos, Janelas e Sistema vêm sempre. As outras você liga e desliga quando quiser com <code>start.bat --setup</code>.</p>
+            <div class="chips" id="feat-chips">
+              <label class="chip"><input type="checkbox" value="lol" checked><span>⚔️ League of Legends</span></label>
+              <label class="chip"><input type="checkbox" value="football"><span>⚽ Futebol ao vivo</span></label>
+              <label class="chip"><input type="checkbox" value="discord"><span>🎧 Discord</span></label>
+              <label class="chip"><input type="checkbox" value="claude"><span>✳️ Claude Code</span></label>
+            </div>
+          </div>
+
+          <div class="q" id="q-team">
+            <h3><span class="n">2</span> Qual é o seu time?</h3>
+            <p>Placar, lances, escalações e tabela vêm da API pública do ESPN. O id do time está no link da página dele no ESPN: <code>espn.com.br/futebol/time/_/id/<b>819</b>/flamengo</code>.</p>
+            <div class="row">
+              <input type="text" id="team-label" value="Flamengo" aria-label="Nome do time">
+              <input type="text" id="team-id" value="819" inputmode="numeric" aria-label="Id do time no ESPN">
+            </div>
+          </div>
+
+          <div class="q">
+            <h3><span class="n">3</span> Rede e Windows</h3>
+            <label class="toggle"><input type="checkbox" id="opt-token"><span><b>Exigir token de acesso</b><small>Recomendado se houver convidados no seu Wi-Fi. O iPad memoriza o token depois do primeiro acesso.</small></span></label>
+            <label class="toggle"><input type="checkbox" id="opt-autostart" checked><span><b>Iniciar junto com o Windows</b><small>Cria um atalho minimizado na pasta Inicializar. Remove com um comando.</small></span></label>
+            <label class="toggle"><input type="checkbox" id="opt-lhm" checked><span><b>Temperaturas e GPU (LibreHardwareMonitor)</b><small>Programa grátis que lê os sensores. Sem ele, CPU, RAM e rede continuam funcionando.</small></span></label>
+          </div>
+        </div>
+
+        <div class="config-out">
+          <div class="seg out-tabs" role="tablist">
+            <button class="on" data-out="cmd">Comandos (PowerShell)</button>
+            <button data-out="prompt">Prompt pro Claude Code</button>
+          </div>
+          <div class="out-box">
+            <div class="out-head"><span id="out-title">Cole no PowerShell</span><button class="btn primary sm" id="copy">Copiar</button></div>
+            <pre id="out"></pre>
+          </div>
+          <p class="hint" id="out-hint"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================ PASSOS -->
+    <section class="wrap section">
+      <p class="eyebrow">Passo 02 · No iPad</p>
+      <h2>Abra no Safari e fixe na tela de início.</h2>
+      <div class="steps">
+        <div class="step"><span class="n">1</span><h3>Mesma rede</h3><p>iPad e PC no mesmo Wi-Fi. Reserve um IP fixo para o PC no roteador, assim a URL nunca muda.</p></div>
+        <div class="step"><span class="n">2</span><h3>Abra a URL</h3><p>O console do PC mostra o endereço pronto, tipo <code>http://192.168.0.10:8765/</code>. Abra no Safari.</p></div>
+        <div class="step"><span class="n">3</span><h3>Tela de início</h3><p><b>Compartilhar › Adicionar à Tela de Início</b>. O ícone abre em tela cheia, sem a barra do Safari.</p></div>
+        <div class="step"><span class="n">4</span><h3>Modo painel 24/7</h3><p>Bloqueio automático: <b>Nunca</b> e <b>Acesso Guiado</b> ligado. O painel se reconecta sozinho se a rede cair.</p></div>
+      </div>
+    </section>
+
+    <!-- ================================================================ RECURSOS -->
+    <section class="wrap section" id="recursos">
+      <p class="eyebrow">O que tem no painel</p>
+      <h2>Um toque para o que hoje leva cinco cliques.</h2>
+      <div class="features">
+        <article class="feat"><span class="tag">01 / Áudio</span><h3>Mixer de verdade, por app.</h3><p>Fader para Spotify, Discord, navegador e jogo, com mute por app. Troca de fone para caixa com um toque, música atual com capa e controles.</p></article>
+        <article class="feat"><span class="tag">02 / Telemetria</span><h3>CPU, GPU, RAM e temperaturas sempre à vista.</h3><p>Gauges no topo, temperatura de CPU, GPU e hotspot, rede com gráfico de 60 s e a janela ativa no PC.</p></article>
+        <article class="feat"><span class="tag">03 / Atalhos</span><h3>Seu Stream Deck, configurado num JSON.</h3><p>Apps, pastas, sites, scripts <code>.bat</code>/<code>.ps1</code>/<code>.py</code>, combinações de teclas e macros. O iPad só manda o id do botão: o que ele executa fica no PC.</p></article>
+        <article class="feat"><span class="tag">04 / League of Legends</span><h3>Do lobby ao fim da partida pelo iPad.</h3><p>Aceitar fila com botão gigante, seleção de campeões, build e runas mais populares para importar, análise ao vivo de rota, times e objetivos. Só usa APIs locais oficiais da Riot.</p></article>
+        <article class="feat"><span class="tag">05 / Futebol</span><h3>Seu time ao vivo, com alerta de gol.</h3><p>Placar, lances, estatísticas, escalações, narração e tabela. Fora de jogo, contagem para o próximo e os últimos resultados.</p></article>
+        <article class="feat"><span class="tag">06 / Discord</span><h3>Entrar na call do grupo com um toque.</h3><p>Quem está falando acende, mute e ensurdecer, volume individual de cada amigo.</p></article>
+        <article class="feat"><span class="tag">07 / Claude Code</span><h3>Aprovar permissões de longe.</h3><p>Lista das sessões, alerta quando uma termina ou espera você, Permitir/Negar pelo iPad e uso de tokens do dia e da semana.</p></article>
+        <article class="feat"><span class="tag">08 / Sistema</span><h3>Janelas, energia e brilho.</h3><p>Desktops virtuais, encaixar, screenshot, bloquear, suspender, desligar (segurando para confirmar), brilho dos monitores via DDC/CI e escurecer o iPad à noite.</p></article>
+      </div>
+    </section>
+
+    <!-- ================================================================ SEGURANÇA -->
+    <section class="wrap section">
+      <p class="eyebrow">Segurança</p>
+      <h2>Feito para a sua rede de casa.</h2>
+      <div class="sec-grid">
+        <div class="sec"><b>Sem comandos livres</b><p>O iPad envia só o id de um botão. O que cada botão faz existe apenas no <code>config.json</code> do PC.</p></div>
+        <div class="sec"><b>Token opcional</b><p>Com convidados no Wi-Fi, ligue o token: o WebSocket recusa quem não tiver.</p></div>
+        <div class="sec"><b>Só rede Privada</b><p>A regra de firewall libera a porta apenas no perfil Privado. Não exponha a porta para a internet.</p></div>
+        <div class="sec"><b>Ações perigosas exigem gesto</b><p>Desligar e reiniciar pedem segurar o botão, e o servidor confere de novo.</p></div>
+      </div>
+    </section>
+
+    <!-- ================================================================ COMPAT -->
+    <section class="wrap section">
+      <p class="eyebrow">Compatibilidade</p>
+      <h2>O que você precisa.</h2>
+      <div class="compat">
+        <span>Windows 10 / 11</span><span>Python 3.11 a 3.13</span><span>iPad Air 2 / iPadOS 15+</span><span>Qualquer iPad</span>
+        <span>Tablets Android</span><span>Celular</span><span>Navegador do PC</span><span>Wi-Fi ou cabo, mesma rede</span>
+      </div>
+    </section>
+
+    <!-- ================================================================ FAQ -->
+    <section class="wrap section" id="duvidas">
+      <p class="eyebrow">Dúvidas</p>
+      <h2>Perguntas rápidas.</h2>
+      <div class="faq">
+        <details><summary>Preciso saber programar?</summary><p>Não. Instale o Python, baixe o projeto e dê dois cliques no <code>start.bat</code>. O assistente pergunta tudo em português e detecta sozinho o que dá (IP, placa de vídeo, pasta do LoL). Para mudar depois: <code>start.bat --setup</code>.</p></details>
+        <details><summary>Funciona sem iPad?</summary><p>Sim. É uma página web: abre em qualquer tablet, celular ou outro computador na mesma rede. O layout foi pensado para 1024×768 em paisagem, mas também funciona em retrato.</p></details>
+        <details><summary>Preciso de jailbreak?</summary><p>Não. Tudo roda no Safari. O README tem dicas opcionais para quem já tem jailbreak (reabrir o painel por SSH, por exemplo).</p></details>
+        <details><summary>Não quero LoL nem futebol. Dá para tirar?</summary><p>Dá. Cada aba extra liga e desliga no assistente ou em <code>"features"</code> no <code>config.json</code>. Aba desligada some do iPad e não roda nada em segundo plano.</p></details>
+        <details><summary>O assistente do LoL é permitido pela Riot?</summary><p>O painel usa as APIs locais oficiais do cliente e da partida e mostra só informação que o próprio jogo já mostra: sem cooldown de inimigos nem rastreio de selva. Ações como banir e escolher são sempre um toque seu.</p></details>
+        <details><summary>Como atualizo?</summary><p>Baixe a versão nova por cima (ou <code>git pull</code>) e rode o <code>start.bat</code>. Ele reinstala as dependências quando precisa, e o seu <code>config.json</code> é mantido.</p></details>
+        <details><summary>O iPad fica em "Conectando…"</summary><p>Quase sempre é o firewall ou a rede marcada como Pública. Rode <code>start.bat --setup</code>: ele libera a porta e avisa se a rede estiver como Pública. Confira também se iPad e PC estão na mesma rede (não na de convidados).</p></details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap foot">
+    <span><img src="assets/icon.png" alt=""> PC Control Center</span>
+    <span><a href="https://github.com/ianlpereira/ipad-pc-control">GitHub</a> · <a href="https://github.com/ianlpereira/ipad-pc-control#readme">Documentação completa</a></span>
+  </footer>
+
+  <script src="site.js"></script>
+</body>
+</html>

@@ -2,6 +2,10 @@
 
 Painel de controle em tempo real que roda no Safari de um iPad (feito e testado no iPad Air 2, iPadOS 15) e controla o PC Windows pela rede local via WebSocket. Funciona também em qualquer tablet ou celular com navegador na mesma rede.
 
+**Site com capturas do painel e configurador:** <https://ianlpereira.github.io/ipad-pc-control/>
+
+![Painel do PC Control Center no iPad](docs/assets/shots/media.webp)
+
 Volume e mixer por app, música tocando, telemetria (CPU/GPU/RAM/temperaturas), atalhos e macros, janelas e energia. Abas opcionais para League of Legends, placar de futebol ao vivo, Discord e Claude Code.
 
 ## Começo rápido
