@@ -203,6 +203,72 @@ def public_networks() -> list[str]:
     return [line.strip() for line in out.splitlines() if line.strip()]
 
 
+# Times do Brasileirão (nome, id no ESPN). Usados se a consulta ao ESPN falhar.
+TEAMS_FALLBACK = {
+    "Série A": [("Athletico-PR", "3458"), ("Atlético-MG", "7632"), ("Bahia", "9967"), ("Botafogo", "6086"),
+                ("Bragantino", "6079"), ("Chapecoense", "9318"), ("Corinthians", "874"), ("Coritiba", "3456"),
+                ("Cruzeiro", "2022"), ("Flamengo", "819"), ("Fluminense", "3445"), ("Grêmio", "6273"),
+                ("Internacional", "1936"), ("Mirassol", "9169"), ("Palmeiras", "2029"), ("Remo", "4936"),
+                ("Santos", "2674"), ("São Paulo", "2026"), ("Vasco", "3454"), ("Vitória", "3457")],
+    "Série B": [("América-MG", "6154"), ("Athletic", "20851"), ("Atlético-GO", "10357"), ("Avaí", "9966"),
+                ("Botafogo-SP", "10281"), ("CRB", "9970"), ("Ceará", "9969"), ("Criciúma", "9971"),
+                ("Cuiabá", "17313"), ("Fortaleza", "6272"), ("Goiás", "3395"), ("Juventude", "6270"),
+                ("Londrina", "17333"), ("Náutico", "7633"), ("Novorizontino", "18127"), ("Operário-PR", "18187"),
+                ("Ponte Preta", "3459"), ("São Bernardo", "11268"), ("Sport", "7635"), ("Vila Nova", "9973")],
+}
+ESPN_LEAGUES = {"Série A": "bra.1", "Série B": "bra.2"}
+
+
+def fetch_teams() -> dict[str, list[tuple[str, str]]]:
+    """Times atuais das Séries A e B direto do ESPN (a lista muda com acesso e rebaixamento)."""
+    try:
+        import httpx
+        out = {}
+        for label, slug in ESPN_LEAGUES.items():
+            r = httpx.get(f"https://site.api.espn.com/apis/site/v2/sports/soccer/{slug}/teams", timeout=5)
+            r.raise_for_status()
+            teams = [t["team"] for t in r.json()["sports"][0]["leagues"][0]["teams"]]
+            out[label] = sorted(((t.get("shortDisplayName") or t["displayName"], str(t["id"])) for t in teams
+                                 if not str(t.get("displayName", "")).startswith("TBD")), key=lambda x: x[0])
+        if all(out.values()):
+            return out
+    except Exception:  # noqa: BLE001 - sem internet ou API mudou: usa a lista embutida
+        pass
+    return TEAMS_FALLBACK
+
+
+def pick_team(current_id: str, current_name: str) -> tuple[str, str]:
+    """Lista numerada dos times; devolve (nome, id do ESPN). 0 = outro time digitando o id."""
+    groups = fetch_teams()
+    flat: list[tuple[str, str]] = []
+    default = 0
+    for label, teams in groups.items():
+        info()
+        info(label + ":")
+        cells = []
+        for name, tid in teams:
+            flat.append((name, tid))
+            if tid == current_id:
+                default = len(flat)
+            cells.append(f"{len(flat):>3}) {name:<16}")
+        for i in range(0, len(cells), 4):
+            info("".join(cells[i:i + 4]))
+    info()
+    info("  0) Outro time (qualquer time do ESPN, digitando o id)")
+    # Time atual fora da lista (ou nenhum): o padrão é 0, que pergunta o id já preenchido.
+    n = ask_int("Número do seu time", default, 0, len(flat))
+    if n:
+        return flat[n - 1]
+    info("Abra a página do time em espn.com.br; o id é o número no link:")
+    info("  espn.com.br/futebol/time/_/id/819/flamengo -> 819")
+    while True:
+        tid = ask("Id do time no ESPN", current_id or "")
+        if tid.isdigit():
+            break
+        info("O id é só números.")
+    return (current_name if tid == current_id and current_name else "Futebol"), tid
+
+
 # ----------------------------------------------------------------------------- etapas
 def step_network(cfg: dict) -> None:
     title("1/6  Rede")
@@ -273,10 +339,10 @@ def step_features(cfg: dict) -> None:
     info("Placar ao vivo de um time de futebol (dados públicos do ESPN).")
     feats["football"] = ask_yes("Ativar a aba de futebol?", feats.get("football", False))
     if feats["football"]:
-        info("O id do time está no link do ESPN: espn.com.br/futebol/time/_/id/819/flamengo -> 819")
-        fla["team_id"] = ask("Id do time no ESPN", str(fla.get("team_id") or "819"))
-        default_label = fla.get("label") or ("Flamengo" if fla["team_id"] == "819" else "Futebol")
-        fla["label"] = ask("Nome da aba", default_label)
+        old_id, old_label = str(fla.get("team_id") or "819"), fla.get("label") or ""
+        name, team_id = pick_team(old_id, old_label)
+        fla["team_id"] = team_id
+        fla["label"] = ask("Nome da aba", old_label if team_id == old_id and old_label else name)
 
     # --- Discord
     info()

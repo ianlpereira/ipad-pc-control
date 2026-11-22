@@ -32,15 +32,64 @@
     });
   });
 
+  // ---------------------------------------------------------------- times (ids do ESPN)
+  // [nome, id no ESPN, cor]. Atualizar: site.api.espn.com/apis/site/v2/sports/soccer/bra.1/teams (e bra.2)
+  var TEAMS = {
+    a: [['Athletico-PR', '3458', '#d80518'], ['Atlético-MG', '7632', '#e5e7eb'], ['Bahia', '9967', '#2563eb'],
+      ['Botafogo', '6086', '#e5e7eb'], ['Bragantino', '6079', '#e5e7eb'], ['Chapecoense', '9318', '#22a34a'],
+      ['Corinthians', '874', '#e5e7eb'], ['Coritiba', '3456', '#22a34a'], ['Cruzeiro', '2022', '#0093ec'],
+      ['Flamengo', '819', '#e11d2a'], ['Fluminense', '3445', '#9b1c31'], ['Grêmio', '6273', '#0093ec'],
+      ['Internacional', '1936', '#e11d2a'], ['Mirassol', '9169', '#fedc00'], ['Palmeiras', '2029', '#22a34a'],
+      ['Remo', '4936', '#3b6fb6'], ['Santos', '2674', '#e5e7eb'], ['São Paulo', '2026', '#e11d2a'],
+      ['Vasco', '3454', '#e5e7eb'], ['Vitória', '3457', '#e11d2a']],
+    b: [['América-MG', '6154', '#22a34a'], ['Athletic', '20851', '#e5e7eb'], ['Atlético-GO', '10357', '#ef4444'],
+      ['Avaí', '9966', '#0093ec'], ['Botafogo-SP', '10281', '#e5e7eb'], ['CRB', '9970', '#e11d2a'],
+      ['Ceará', '9969', '#e5e7eb'], ['Criciúma', '9971', '#f8e71c'], ['Cuiabá', '17313', '#16a34a'],
+      ['Fortaleza', '6272', '#2563eb'], ['Goiás', '3395', '#22a34a'], ['Juventude', '6270', '#22a34a'],
+      ['Londrina', '17333', '#0093ec'], ['Náutico', '7633', '#e11d2a'], ['Novorizontino', '18127', '#facc15'],
+      ['Operário-PR', '18187', '#e5e7eb'], ['Ponte Preta', '3459', '#e5e7eb'], ['São Bernardo', '11268', '#facc15'],
+      ['Sport', '7635', '#e11d2a'], ['Vila Nova', '9973', '#e11d2a']]
+  };
+  var team = { name: 'Flamengo', id: '819' }, league = 'a';
+  function renderTeams() {
+    var box = $('#team-chips');
+    box.classList.toggle('hidden', league === 'other');
+    $('#other-team').classList.toggle('hidden', league !== 'other');
+    if (league === 'other') return;
+    box.innerHTML = TEAMS[league].map(function (t) {
+      var on = t[1] === team.id;
+      return '<button type="button" role="radio" aria-checked="' + on + '" class="team' + (on ? ' on' : '') +
+        '" data-id="' + t[1] + '" data-name="' + t[0] + '"><i style="background:' + t[2] + '"></i>' + t[0] + '</button>';
+    }).join('');
+  }
+  $('#team-chips').addEventListener('click', function (e) {
+    var b = e.target.closest('button.team');
+    if (!b) return;
+    team = { name: b.dataset.name, id: b.dataset.id };
+    renderTeams(); render();
+  });
+  $$('.league-tabs button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      league = b.dataset.league;
+      $$('.league-tabs button').forEach(function (x) { x.classList.toggle('on', x === b); });
+      if (league === 'other') {
+        $('#team-label').value = $('#team-label').value || team.name;
+        $('#team-id').value = $('#team-id').value || team.id;
+      }
+      renderTeams(); render();
+    });
+  });
+
   // ---------------------------------------------------------------- configurador
   var outMode = 'cmd';
   function choices() {
     var feats = {};
     $$('#feat-chips input').forEach(function (i) { feats[i.value] = i.checked; });
+    var other = league === 'other';
     return {
       feats: feats,
-      team: ($('#team-label').value || 'Meu time').trim(),
-      teamId: ($('#team-id').value || '').replace(/\D/g, '') || '819',
+      team: other ? ($('#team-label').value || 'Meu time').trim() : team.name,
+      teamId: other ? (($('#team-id').value || '').replace(/\D/g, '') || '819') : team.id,
       token: $('#opt-token').checked,
       autostart: $('#opt-autostart').checked,
       lhm: $('#opt-lhm').checked
@@ -71,7 +120,7 @@
     L.push('# Respostas para o assistente:');
     L.push('#   Exigir token de acesso? ' + yesNo(c.token));
     Object.keys(NAMES).forEach(function (k) { L.push('#   Ativar a aba ' + (k === 'football' ? 'de futebol' : NAMES[k]) + '? ' + yesNo(c.feats[k])); });
-    if (c.feats.football) L.push('#   Id do time no ESPN: ' + c.teamId + '   Nome da aba: ' + c.team);
+    if (c.feats.football) L.push('#   Time: ' + c.team + ' (id ' + c.teamId + ' no ESPN; escolha na lista ou digite o id)');
     L.push('#   Liberar a porta no firewall? sim');
     L.push('#   Iniciar junto com o Windows? ' + yesNo(c.autostart));
     return L.join('\n');
@@ -140,5 +189,6 @@
       document.body.removeChild(ta);
     }
   });
+  renderTeams();
   render();
 })();

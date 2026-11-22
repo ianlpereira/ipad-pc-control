@@ -21,7 +21,7 @@ Você precisa de um **PC com Windows 10/11**, **Python 3.11 a 3.13** e o iPad (o
 4. **Responda o assistente** (Enter aceita o valor sugerido). Ele detecta sozinho o que dá e:
    - mostra o IP do PC e define a porta e o token de acesso;
    - encontra o LibreHardwareMonitor e a placa de vídeo (temperaturas e GPU);
-   - liga só as abas que você quer: LoL (acha a pasta do jogo), futebol (qualquer time), Discord e Claude Code;
+   - liga só as abas que você quer: LoL (acha a pasta do jogo), futebol (escolha o time numa lista das Séries A e B, ou qualquer outro), Discord e Claude Code;
    - libera a porta no **Firewall do Windows** (pede permissão de administrador) e avisa se a rede estiver como Pública;
    - opcionalmente faz o servidor **iniciar junto com o Windows**.
 5. **No iPad**, abra no Safari a URL que aparece no final (ex.: `http://192.168.0.10:8765/`) e toque em **Compartilhar › Adicionar à Tela de Início** para abrir em tela cheia.
@@ -234,7 +234,7 @@ Feita para o Flamengo, mas serve para qualquer time coberto pelo ESPN. Ligue em 
 
 - **Fonte:** API pública do ESPN, sem chave. **Não é oficial** e pode mudar sem aviso; nesse caso a aba mantém o último valor e mostra "Placar indisponível". O placar tem atraso de algumas dezenas de segundos em relação à TV. O servidor consulta a cada 10 s durante o jogo e bem mais devagar fora dele.
 - **Alertas:** gol do seu time toca som e destaca a tela; gol do adversário, início, intervalo, vermelho e fim de jogo avisam em silêncio (vermelho do seu time com som). Cada tipo liga e desliga em `alerts`. Ao ligar o servidor no meio do jogo, ele não avisa lances que já aconteceram.
-- **`team_id`:** o id do time no ESPN. Está no link da página do time: `espn.com.br/futebol/time/_/id/819/flamengo` → `819`. **`label`:** nome da aba. **`auto_switch`:** o iPad vai para a aba no gol e no início do jogo.
+- **`team_id`:** o id do time no ESPN. O assistente (`start.bat --setup`) mostra a lista das Séries A e B para escolher pelo número; para outro time, o id está no link da página dele: `espn.com.br/futebol/time/_/id/819/flamengo` → `819`. **`label`:** nome da aba. **`auto_switch`:** o iPad vai para a aba no gol e no início do jogo.
 
 ### Discord (painel do grupo)
 

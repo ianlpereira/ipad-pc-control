@@ -93,10 +93,19 @@
 
           <div class="q" id="q-team">
             <h3><span class="n">2</span> Qual é o seu time?</h3>
-            <p>Placar, lances, escalações e tabela vêm da API pública do ESPN. O id do time está no link da página dele no ESPN: <code>espn.com.br/futebol/time/_/id/<b>819</b>/flamengo</code>.</p>
-            <div class="row">
-              <input type="text" id="team-label" value="Flamengo" aria-label="Nome do time">
-              <input type="text" id="team-id" value="819" inputmode="numeric" aria-label="Id do time no ESPN">
+            <p>Placar ao vivo, lances, escalações e tabela de todas as competições do time. Toque no seu clube.</p>
+            <div class="seg league-tabs" role="tablist">
+              <button class="on" data-league="a">Série A</button>
+              <button data-league="b">Série B</button>
+              <button data-league="other">Outro time</button>
+            </div>
+            <div class="chips teams" id="team-chips" role="radiogroup" aria-label="Time"></div>
+            <div class="other-team hidden" id="other-team">
+              <p>Qualquer time do ESPN serve (de outros países também). Abra a página do time no <a href="https://www.espn.com.br/futebol/" target="_blank" rel="noopener">espn.com.br</a> e copie o número do link: <code>espn.com.br/futebol/time/_/id/<b>819</b>/flamengo</code>.</p>
+              <div class="row">
+                <input type="text" id="team-label" placeholder="Nome do time" aria-label="Nome do time">
+                <input type="text" id="team-id" placeholder="Id (ex.: 819)" inputmode="numeric" aria-label="Id do time no ESPN">
+              </div>
             </div>
           </div>
 
