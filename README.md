@@ -1,11 +1,35 @@
-# PC Control Center — iPad Air 2 como Stream Deck do Windows
+# PC Control Center — iPad como Stream Deck do Windows
 
-Painel de controle em tempo real que roda no Safari do iPad Air 2 (A1566, iPadOS 15) e controla o PC Windows pela rede local via WebSocket.
+Painel de controle em tempo real que roda no Safari de um iPad (feito e testado no iPad Air 2, iPadOS 15) e controla o PC Windows pela rede local via WebSocket. Funciona também em qualquer tablet ou celular com navegador na mesma rede.
+
+Volume e mixer por app, música tocando, telemetria (CPU/GPU/RAM/temperaturas), atalhos e macros, janelas e energia. Abas opcionais para League of Legends, placar de futebol ao vivo, Discord e Claude Code.
+
+## Começo rápido
+
+Você precisa de um **PC com Windows 10/11**, **Python 3.11 a 3.13** e o iPad (ou outro aparelho) **na mesma rede** do PC.
+
+1. **Instale o Python** em <https://www.python.org/downloads/> (recomendado: 3.13) e marque **"Add python.exe to PATH"** no instalador.
+2. **Baixe este projeto**: botão verde **Code › Download ZIP** no GitHub (extraia numa pasta fixa, ex.: `Documentos\ipad-pc-control`), ou:
+   ```powershell
+   git clone https://github.com/ianlpereira/ipad-pc-control.git
+   ```
+3. **Dê dois cliques em `start.bat`**. Na primeira vez ele instala tudo (1 a 3 minutos) e abre o **assistente de configuração**.
+4. **Responda o assistente** (Enter aceita o valor sugerido). Ele detecta sozinho o que dá e:
+   - mostra o IP do PC e define a porta e o token de acesso;
+   - encontra o LibreHardwareMonitor e a placa de vídeo (temperaturas e GPU);
+   - liga só as abas que você quer: LoL (acha a pasta do jogo), futebol (qualquer time), Discord e Claude Code;
+   - libera a porta no **Firewall do Windows** (pede permissão de administrador) e avisa se a rede estiver como Pública;
+   - opcionalmente faz o servidor **iniciar junto com o Windows**.
+5. **No iPad**, abra no Safari a URL que aparece no final (ex.: `http://192.168.0.10:8765/`) e toque em **Compartilhar › Adicionar à Tela de Início** para abrir em tela cheia.
+
+Para refazer a configuração depois: `start.bat --setup` (as respostas atuais viram o padrão e o `config.json` anterior ganha backup). Ajustes finos (botões de atalho, volumes do modo jogo, alertas) ficam no `config.json`; as seções abaixo explicam cada um.
+
+Atualizar: baixe a versão nova por cima (ou `git pull`) e rode o `start.bat`. Ele reinstala as dependências sozinho quando o `requirements.txt` muda. Seu `config.json` não é sobrescrito.
 
 ```
 ┌──────────────────────── iPad Air 2 (Safari 15 / WebClip tela cheia) ────────────────────────┐
 │  web/index.html + style.css + app.js  (Vanilla JS ES2017, ~30 KB, sem build, sem framework)  │
-│  Topbar · Telemetria fixa (CPU/GPU/RAM/Temp/Rede) · 5 abas · zero scroll · 1024×768          │
+│  Topbar · Telemetria fixa (CPU/GPU/RAM/Temp/Rede) · 9 abas · zero scroll · 1024×768          │
 └───────────────┬──────────────────────────────────────────────────────────────▲──────────────┘
                 │ HTTP GET /  (arquivos estáticos)                             │ state a cada 1 s
                 │ WS /ws          {"t":"cmd","a":"audio.master.set","v":0.5}   │ + push após comando
@@ -26,36 +50,54 @@ Painel de controle em tempo real que roda no Safari do iPad Air 2 (A1566, iPadOS
 
 ---
 
-## 1. Instalação rápida (PC)
+## 1. Instalação no PC (detalhes)
 
-1. **Python 3.11+** no PATH (testado em 3.14.2).
-2. Na pasta do projeto, dê duplo clique em **`start.bat`**. No primeiro uso ele cria o `.venv`, instala as dependências e gera o `config.json`.
-3. O console mostra a URL pronta, por exemplo:
-   ```
-   http://192.168.0.10:8765/
-   ```
-4. **Libere a porta no Firewall** (PowerShell como administrador, só rede **Privada**):
+O [Começo rápido](#começo-rápido) cobre tudo. Esta seção explica o que o `start.bat` e o assistente fazem, para quem prefere configurar à mão.
+
+| Comando | O que faz |
+|---|---|
+| `start.bat` | Cria o `.venv` com o Python 3.11+ encontrado (`py -3.13`, `-3.12`, `-3.14`, `-3.11` ou `python`), instala as dependências, abre o assistente se não houver `config.json` e inicia o servidor |
+| `start.bat --setup` | Abre o assistente de novo antes de iniciar |
+| `start.bat --min` | Inicia com o console minimizado, sem assistente (usado pelo atalho de inicialização) |
+| `.venv\Scripts\python.exe -m server.wizard` | Só o assistente, sem iniciar o servidor |
+
+Passos manuais equivalentes ao assistente:
+
+1. Copie `config.example.json` para `config.json` e ajuste (o servidor também cria um a partir do exemplo se ele faltar).
+2. **Libere a porta no Firewall** (PowerShell como administrador, só rede **Privada**):
    ```powershell
    New-NetFirewallRule -DisplayName "Control Center iPad" -Direction Inbound -Protocol TCP -LocalPort 8765 -Action Allow -Profile Private
    ```
-   Confira se a sua rede Wi-Fi/Ethernet está como **Privada** em Configurações › Rede.
-5. **Reserve um IP fixo** para o PC no roteador (reserva DHCP) para a URL nunca mudar.
+   Confira se a sua rede Wi-Fi/Ethernet está como **Privada** em Configurações › Rede e Internet.
+3. **Reserve um IP fixo** para o PC no roteador (reserva DHCP) para a URL nunca mudar.
+
+### Abas opcionais
+
+Mídia, Mixer, Atalhos, Janelas e Sistema estão sempre ligadas. As outras ligam e desligam em `features`; aba desligada some do iPad e não roda nada em segundo plano:
+
+```json
+"features": { "lol": true, "football": false, "discord": false, "claude": false }
+```
+
+Sem a chave `features`, todas ficam ligadas (compatível com configs antigos).
 
 ### Telemetria completa: LibreHardwareMonitor
 
-Temperatura da CPU (Ryzen) e uso/temperatura/VRAM da GPU (RX 9060 XT) não são expostos pelo Windows a programas comuns. O painel lê do **LibreHardwareMonitor** (gratuito, open source):
+Temperatura da CPU e uso/temperatura/VRAM da GPU não são expostos pelo Windows a programas comuns. O painel lê do **LibreHardwareMonitor** (gratuito, open source):
 
 1. Baixe em <https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases> e extraia.
 2. Rode **como administrador**.
 3. `Options › Remote Web Server › Run` (porta 8085 padrão). Marque também `Options › Start Minimized`, `Minimize to Tray` e `Run On Windows Startup`.
 4. Pronto: o aviso amarelo "Abra o LibreHardwareMonitor" some do painel.
 
-5. Aponte `"lhm_path"` no `config.json` para a pasta do LHM (ex.: `"~/Downloads/LibreHardwareMonitor"`). O `start.bat` passa a abri-lo automaticamente se ele ainda não estiver aberto. O Windows mostra o prompt do UAC, porque o LHM precisa de admin. Se o servidor já rodar como admin (tarefa com `/rl highest`), o prompt não aparece. Deixe `"lhm_path": ""` para não abrir. Com `"lhm_minimized": true` (padrão), antes de abrir o LHM o servidor liga *Start Minimized* e *Minimize To Tray* no `LibreHardwareMonitor.config`, e o LHM sobe direto na bandeja.
+5. Aponte `"lhm_path"` no `config.json` para a pasta do LHM (ex.: `"~/Downloads/LibreHardwareMonitor"`; o assistente procura sozinho). O `start.bat` passa a abri-lo automaticamente se ele ainda não estiver aberto. O Windows mostra o prompt do UAC, porque o LHM precisa de admin. Se o servidor já rodar como admin (tarefa com `/rl highest`), o prompt não aparece. Deixe `"lhm_path": ""` para não abrir. Com `"lhm_minimized": true` (padrão), antes de abrir o LHM o servidor liga *Start Minimized* e *Minimize To Tray* no `LibreHardwareMonitor.config`, e o LHM sobe direto na bandeja.
 
 Sem o LHM, CPU/RAM/rede continuam funcionando; GPU e temperaturas mostram "—".
-Se a GPU errada aparecer (ex.: a iGPU do 5600GT), ajuste `"gpu_name_filter": "9060"` no `config.json`.
+Se a GPU errada aparecer (ex.: o vídeo integrado do processador em vez da placa dedicada), ajuste `"gpu_name_filter"` com um trecho do nome da placa, ex.: `"4060"` ou `"6700"`. O assistente faz isso quando acha mais de uma placa.
 
 ### Iniciar junto com o Windows
+
+O assistente oferece criar o atalho da opção A.
 
 O servidor precisa rodar **na sessão do seu usuário**, porque áudio, teclas simuladas e janelas dependem disso.
 
@@ -141,9 +183,10 @@ O TrollStore instala apps permanentemente no iOS 15 sem precisar de jailbreak. U
 | **Topo (fixo)** | Relógio, janela ativa no PC, hostname, latência (ms), status da conexão. Gauges de CPU/GPU/RAM, barras de temperatura (CPU, GPU, hotspot), rede ↓/↑ com gráfico de 60 s |
 | **Mídia** | Música atual (capa, título, artista, progresso) e ⏮ ⏯ ⏭; volume mestre + mute; troca de saída de áudio com 1 toque (headset ↔ caixas) |
 | **Mixer** | Faders verticais: mestre + cada app tocando áudio (Discord, Spotify, jogo…), com mute por app; paginação se houver mais de 8 |
-| **LoL** | Fase do cliente (lobby, fila com tempo, seleção, partida); aceitar partida e aceitar automático; abrir/fechar cliente. Na partida: campeão, KDA, CS, CS/min, visão, participação em abates, placar e tempo |
-| **Discord** | Canal atual, entrar no canal do grupo com 1 toque, sair, mute/ensurdecer; amigos na call com avatar (acende quem fala), mudo/surdo e volume individual |
-| **Claude** | Sessões do Claude Code (trabalhando/esperando você/concluído), pedidos de permissão com Permitir/Negar, tokens de hoje e 7 dias, abrir projeto/app/claude.ai |
+| **LoL** (opcional) | Fase do cliente (lobby, fila com tempo, seleção, partida); aceitar partida e aceitar automático; abrir/fechar cliente. Na partida: campeão, KDA, CS, CS/min, visão, participação em abates, placar e tempo |
+| **Futebol** (opcional) | Placar ao vivo do seu time, lances, estatísticas, escalações, tabela e próximos jogos |
+| **Discord** (opcional) | Canal atual, entrar no canal do grupo com 1 toque, sair, mute/ensurdecer; amigos na call com avatar (acende quem fala), mudo/surdo e volume individual |
+| **Claude** (opcional) | Sessões do Claude Code (trabalhando/esperando você/concluído), pedidos de permissão com Permitir/Negar, tokens de hoje e 7 dias, abrir projeto/app/claude.ai |
 | **Atalhos** | Páginas de botões configuráveis (apps, pastas, sites, scripts, macros) |
 | **Janelas** | Desktop anterior/próximo/novo, Visão de tarefas, Alt+Tab, Mostrar desktop, Maximizar, Encaixar, Explorer, Screenshot (salva em `Imagens\ControlCenter`), Recorte, Fechar janela (segurar) |
 | **Sistema** | Bloquear, Suspender, Desligar monitor, Reiniciar Explorer, Reiniciar, Desligar (**segurar 1,2 s** para confirmar); brilho dos monitores via DDC/CI; Luz Noturna; escurecer iPad |
@@ -172,25 +215,26 @@ Usa as APIs locais oficiais do cliente (LCU) e da partida (Live Client Data). S�
 - **Começar partida só pelo iPad:** a visão **Lobby/Seleção** da aba LoL abre sozinha e esconde a telemetria. No **lobby** você escolhe a fila (Solo/Duo, Flex, Normal, ARAM...), a 1ª e 2ª rota e toca em **Buscar partida** (ou **Cancelar busca**); segure **Sair do lobby** para sair. Na **seleção de campeões**: contagem da fase, banir/escolher/**travar** (cada toque é uma ação sua, nada é automático), grade com filtro por classe, régua A–Z, os dois times com bans, e um painel com **Runas** (as 3 opções mais populares do op.gg para importar, mais as páginas que você já tem), **Feitiços** (troca do D/F, ou aplica os recomendados), **Inimigos** (mix de dano físico/mágico estimado, seu campeão contra cada inimigo revelado e as melhores respostas a cada um; tocar numa resposta marca o campeão) e **Skin** (ARAM: banco e rerrolar). O iPad avisa quando chega a sua vez de banir ou escolher e quando faltam 10 s. Depois da partida, **Jogar de novo** volta ao lobby. Tudo usa a API local do cliente (LCU); os caminhos ficam em `server/modules/lol_control.py` e podem ser conferidos em `/swagger/v3/openapi.json` da LCU com o cliente aberto.
 - **Fechar cliente:** segure o botão. Fecha o cliente do LoL e o Riot Client, que ficam ocupando CPU e RAM sem fazer nada. Fica bloqueado durante a partida.
 
-### Flamengo (placar ao vivo)
+### Futebol (placar ao vivo)
 
-A aba **Flamengo** mostra o jogo em andamento: placar, relógio, lances (gols, cartões, substituições), estatísticas, escalações, narração e a tabela do campeonato. Fora de jogo, mostra a contagem para o próximo jogo e o último resultado; a visão **Jogos** lista os próximos e os últimos resultados com a sequência de V/E/D. Cobre todas as competições do time (Brasileirão, Libertadores, Copa do Brasil, estaduais).
+Feita para o Flamengo, mas serve para qualquer time coberto pelo ESPN. Ligue em `features.football`. A aba (nome em `flamengo.label`) mostra o jogo em andamento: placar, relógio, lances (gols, cartões, substituições), estatísticas, escalações, narração e a tabela do campeonato. Fora de jogo, mostra a contagem para o próximo jogo e o último resultado; a visão **Jogos** lista os próximos e os últimos resultados com a sequência de V/E/D. Cobre todas as competições do time (Brasileirão, Libertadores, Copa do Brasil, estaduais).
 
 ```json
 "flamengo": {
   "team_id": "819",
+  "label": "Flamengo",
   "auto_switch": false,
   "alerts": { "goal": true, "kickoff": true, "red_card": true, "period": true, "final": true }
 }
 ```
 
 - **Fonte:** API pública do ESPN, sem chave. **Não é oficial** e pode mudar sem aviso; nesse caso a aba mantém o último valor e mostra "Placar indisponível". O placar tem atraso de algumas dezenas de segundos em relação à TV. O servidor consulta a cada 10 s durante o jogo e bem mais devagar fora dele.
-- **Alertas:** gol do Flamengo toca som e destaca a tela; gol do adversário, início, intervalo, vermelho e fim de jogo avisam em silêncio (vermelho do seu time com som). Cada tipo liga e desliga em `alerts`. Ao ligar o servidor no meio do jogo, ele não avisa lances que já aconteceram.
-- **`team_id`:** o id do time no ESPN (Flamengo = 819), para acompanhar outro time. **`auto_switch`:** o iPad vai para a aba no gol e no início do jogo.
+- **Alertas:** gol do seu time toca som e destaca a tela; gol do adversário, início, intervalo, vermelho e fim de jogo avisam em silêncio (vermelho do seu time com som). Cada tipo liga e desliga em `alerts`. Ao ligar o servidor no meio do jogo, ele não avisa lances que já aconteceram.
+- **`team_id`:** o id do time no ESPN. Está no link da página do time: `espn.com.br/futebol/time/_/id/819/flamengo` → `819`. **`label`:** nome da aba. **`auto_switch`:** o iPad vai para a aba no gol e no início do jogo.
 
 ### Discord (painel do grupo)
 
-O Discord só libera controle de voz (RPC) para apps do próprio usuário. Configure uma vez:
+O Discord só libera controle de voz (RPC) para apps do próprio usuário. Configure uma vez (o assistente pergunta os mesmos dados e abre o portal para você):
 
 1. Em <https://discord.com/developers/applications>, **New Application** (o nome é livre, ex.: "PC Control").
 2. Em **OAuth2**, copie o **Client ID**, gere e copie o **Client Secret** e adicione o Redirect `http://localhost`.
@@ -203,7 +247,7 @@ O Discord só libera controle de voz (RPC) para apps do próprio usuário. Confi
 
 ### Claude Code (alertas e aprovação)
 
-Instale os hooks uma vez. Isso altera a configuração **global** do Claude Code (`~/.claude/settings.json`), sempre com backup:
+Instale os hooks uma vez (o assistente oferece). Isso altera a configuração **global** do Claude Code (`~/.claude/settings.json`), sempre com backup:
 
 ```bash
 .venv\Scripts\python.exe scripts\install_claude_hooks.py
@@ -286,11 +330,13 @@ Nova ação: crie uma função no módulo, registre com `d.on("modulo.acao", fun
 
 | Sintoma | Solução |
 |---|---|
-| iPad fica em "Conectando…" | Firewall (passo 4), rede marcada como Pública, IP do PC mudou, ou PC e iPad em redes/VLANs diferentes (Wi-Fi de convidados) |
+| `start.bat` diz "Python 3.11 ou mais novo nao encontrado" | Instale o Python 3.13 marcando "Add python.exe to PATH" e abra o `start.bat` de novo |
+| Quero mudar o que respondi no assistente | `start.bat --setup` |
+| iPad fica em "Conectando…" | Firewall (`start.bat --setup` oferece liberar a porta), rede marcada como Pública, IP do PC mudou, ou PC e iPad em redes/VLANs diferentes (Wi-Fi de convidados) |
 | "Token inválido" (só com `require_token: true`) | Copie o token atual do `config.json` / console |
 | GPU/temperaturas com "—" | LibreHardwareMonitor fechado, sem admin ou sem o Remote Web Server ligado |
 | Teclas não funcionam em um jogo | O jogo roda como admin: rode o servidor como admin (`/rl highest`). Alguns anti-cheat bloqueiam entrada simulada |
 | Brilho "sem DDC" | Ative DDC/CI no menu do monitor. Notebooks e algumas TVs não suportam |
 | Mídia mostra "Nada tocando" | O app precisa aparecer no controle de mídia do Windows (Win+A/volume). Spotify desktop e navegadores funcionam |
 | Suspender hiberna em vez de suspender | `powercfg /hibernate off` |
-| Wheels falham no `pip install` | Use Python 3.12 ou 3.13 |
+| Wheels falham no `pip install` | Use Python 3.12 ou 3.13: instale, apague a pasta `.venv` e rode o `start.bat` |

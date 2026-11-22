@@ -20,7 +20,7 @@ from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
-from .config import WEB_DIR, load_config
+from .config import WEB_DIR, feature_on, load_config
 from .modules import audio as audio_mod
 from .modules import display, launcher as launcher_mod, media as media_mod, power, windows
 from .modules import claude as claude_mod
@@ -69,23 +69,26 @@ STATE_PROVIDERS: dict[str, tuple[Callable[[], Awaitable[Any]], float]] = {}
 # Coroutines chamadas no startup (depois do event loop existir).
 STARTUP_HOOKS: list[Callable[[], Awaitable[None]]] = []
 
+# Abas opcionais (config "features"): desligada = sem estado no tick e sem tarefa em segundo plano.
 lol = lol_mod.register(dispatcher, cfg)
-STATE_PROVIDERS["lol"] = (lol.state, 2.5)
+if feature_on(cfg, "lol"):
+    STATE_PROVIDERS["lol"] = (lol.state, 2.5)
 claude = claude_mod.register(dispatcher, cfg)
-STATE_PROVIDERS["claude"] = (claude.state, 1.0)
+if feature_on(cfg, "claude"):
+    STATE_PROVIDERS["claude"] = (claude.state, 1.0)
 discord = discord_mod.register(dispatcher, cfg)
-STATE_PROVIDERS["discord"] = (discord.state, 1.0)
+if feature_on(cfg, "discord"):
+    STATE_PROVIDERS["discord"] = (discord.state, 1.0)
 
+    async def _start_discord() -> None:
+        asyncio.create_task(discord.run())
 
-async def _start_discord() -> None:
-    asyncio.create_task(discord.run())
-
-
-STARTUP_HOOKS.append(_start_discord)
+    STARTUP_HOOKS.append(_start_discord)
 
 fla = flamengo_mod.register(dispatcher, cfg)
-STATE_PROVIDERS["fla"] = (fla.state, 1.0)
-STARTUP_HOOKS.append(fla.start)   # poll do placar em segundo plano
+if feature_on(cfg, "football"):
+    STATE_PROVIDERS["fla"] = (fla.state, 1.0)
+    STARTUP_HOOKS.append(fla.start)   # poll do placar em segundo plano
 
 
 async def _ping(v: Any) -> Any:
@@ -300,6 +303,8 @@ async def ws_endpoint(ws: WebSocket, token: str = Query("")) -> None:
         "host": socket.gethostname(),
         "launcher": launcher.public_pages(cfg),
         "night_dim": cfg.get("night_dim"),
+        "features": cfg["features"],
+        "football_label": (cfg.get("flamengo") or {}).get("label") or "Flamengo",
     })
     await hub.send(ws, notifier.snapshot())
     asyncio.create_task(hub.push_state())

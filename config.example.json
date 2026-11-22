@@ -5,12 +5,13 @@
   "require_token": false,
   "tick_seconds": 1.0,
   "lhm_url": "http://127.0.0.1:8085/data.json",
-  "lhm_path": "~/Downloads/LibreHardwareMonitor",
+  "lhm_path": "",
   "lhm_minimized": true,
-  "gpu_name_filter": "9060",
+  "gpu_name_filter": "",
   "net_exclude": ["loopback", "vethernet", "virtualbox", "vmware", "bluetooth"],
   "screenshot_dir": "",
   "audio_device_hide": ["steam streaming"],
+  "features": { "lol": true, "football": false, "discord": false, "claude": false },
   "night_dim": { "enabled": false, "start": "23:00", "end": "07:00", "opacity": 0.75 },
   "lol": {
     "dir": "C:/Riot Games/League of Legends",
@@ -26,6 +27,7 @@
   },
   "flamengo": {
     "team_id": "819",
+    "label": "Flamengo",
     "auto_switch": false,
     "alerts": { "goal": true, "kickoff": true, "red_card": true, "period": true, "final": true }
   },
@@ -37,7 +39,7 @@
   },
   "claude": {
     "trusted_ips": [],
-    "projects": ["~/Documents/projs/ipad-pc-control"],
+    "projects": [],
     "app_id": "Claude_pzs8sxrjxfjjc!Claude"
   },
   "launcher": [

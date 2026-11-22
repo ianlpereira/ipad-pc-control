@@ -380,8 +380,9 @@
 
   // ---------------------------------------------------------------- abas
   var currentTab = 'media';
+  var disabledTabs = {};  // abas desligadas em config.json -> "features"
   function switchTab(name) {
-    if (!$('.page[data-page="' + name + '"]')) name = 'media';
+    if (!$('.page[data-page="' + name + '"]') || disabledTabs[name]) name = 'media';
     currentTab = name;
     $$('.tab').forEach(function (t) { t.classList.toggle('active', t.dataset.tab === name); });
     $$('.page').forEach(function (p) { p.classList.toggle('active', p.dataset.page === name); });
@@ -692,8 +693,30 @@
   };
 
   // ---------------------------------------------------------------- config / relógio
+  var FEATURE_TABS = { lol: 'lol', football: 'fla', discord: 'discord', claude: 'claude' };
+  function applyFeatures(c) {
+    var f = c.features || {};
+    disabledTabs = {};
+    Object.keys(FEATURE_TABS).forEach(function (k) {
+      if (f[k] === false) disabledTabs[FEATURE_TABS[k]] = true;
+    });
+    var shown = 0;
+    $$('.tab').forEach(function (t) {
+      var off = !!disabledTabs[t.dataset.tab];
+      t.classList.toggle('hidden', off);
+      if (!off) shown++;
+    });
+    $('#tabbar').style.gridTemplateColumns = 'repeat(' + shown + ', 1fr)';
+    if (c.football_label) {
+      setText($('.tab[data-tab="fla"] span'), c.football_label);
+      setText($('#fla-title'), c.football_label);
+    }
+    if (disabledTabs[currentTab]) switchTab('media');
+  }
+
   function applyConfig(c) {
     setText($('#host'), c.host || '');
+    applyFeatures(c);
     launcherPages = c.launcher || [];
     renderLauncher(+(store('cc_lpage') || 0));
     nightCfg = c.night_dim || null;
