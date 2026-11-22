@@ -196,7 +196,8 @@ app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None
 async def no_cache(request: Request, call_next):
     # O Safari do iPad cacheia agressivamente WebClips; sem isso, updates do painel não aparecem.
     resp = await call_next(request)
-    resp.headers["Cache-Control"] = "no-cache"
+    if "cache-control" not in resp.headers:   # rotas que definem cache próprio (ícones do LoL, arte da mídia) mantêm
+        resp.headers["Cache-Control"] = "no-cache"
     if request.url.path != "/debug":
         http_log.info("%s %s %s -> %s | %s", request.client.host if request.client else "?", request.method,
                       request.url.path, resp.status_code, request.headers.get("user-agent", "")[:120])
@@ -240,6 +241,15 @@ async def lol_champion_icon(champ_id: int) -> Response:
     if icon is None:
         return Response(status_code=404)
     return Response(content=icon[0], media_type=icon[1], headers={"Cache-Control": "max-age=86400"})
+
+
+@app.get("/lol/catalog")
+async def lol_catalog(mode: str = Query("CLASSIC")) -> dict:
+    """Listas estáticas da seleção (campeões, feitiços do modo, filas): o iPad busca ao abrir a seleção,
+    para não repetir ~170 campeões em todo tick do estado."""
+    await lol.builds.ensure_meta()
+    return {"champions": lol.builds.champions(), "spells": lol.builds.spells(mode),
+            "queues": await lol.control.queues()}
 
 
 def _is_local(request: Request) -> bool:

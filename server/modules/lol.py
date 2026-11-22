@@ -22,6 +22,8 @@ import httpx
 import psutil
 
 from . import audio as audio_mod
+from . import lol_select
+from .lol_control import Control
 from .lol_live import LiveAnalyzer
 from .notify import notifier
 from ..protocol import CommandError, Dispatcher
@@ -49,9 +51,12 @@ class Lol:
         self._champ_alias_to_id: dict[str, int] = {}
         from .lol_builds import Builds  # import tardio: lol_builds referencia esta classe
         self.builds = Builds(self)
+        self.control = Control(self)
         self.analyzer = LiveAnalyzer(c.get("live"))
         self._mode = "CLASSIC"
         self._locked_champ = 0
+        self._turn_key: Any = None       # ação do jogador em andamento (para avisar "sua vez" uma vez)
+        self._turn_warned = False
 
     # ---------- LCU ----------
     def _read_lockfile(self) -> tuple[str, httpx.BasicAuth] | None:
@@ -96,7 +101,10 @@ class Lol:
         phase = await self._json("/lol-gameflow/v1/gameflow-phase")
         self.phase = phase if isinstance(phase, str) else "closed"
         out: dict[str, Any] = {"phase": self.phase, "auto_accept": self.auto_accept,
-                               "ready_check": None, "queue": None, "game": None}
+                               "ready_check": None, "queue": None, "game": None, "lobby": None}
+
+        if self.phase in ("Lobby", "Matchmaking", "ReadyCheck"):
+            out["lobby"] = await self.control.lobby_state()
 
         if self.phase == "Matchmaking":
             s = await self._json("/lol-matchmaking/v1/search")
@@ -131,6 +139,7 @@ class Lol:
         if self.phase in ("closed", "None", "Lobby", "Matchmaking", "ReadyCheck"):
             self.builds.clear()
             self._locked_champ = 0
+            self._turn_key, self._turn_warned = None, False
         out["build"] = self.builds.state()
 
         if prev != self.phase:
@@ -141,25 +150,49 @@ class Lol:
         if entering:
             gf = await self._json("/lol-gameflow/v1/session")
             self._mode = str((((gf or {}).get("gameData") or {}).get("queue") or {}).get("gameMode") or "CLASSIC")
+            self._turn_key, self._turn_warned = None, False
+            self.builds.clear_enemies()
             if self.game_mode.get("switch_tab"):
                 notifier.event("switch_tab", tab=self.game_mode["switch_tab"])
-        s = await self._json("/lol-champ-select/v1/session")
+        await self.builds.ensure_meta()
+        s, pick, ban = await asyncio.gather(
+            self._json("/lol-champ-select/v1/session"),
+            self._json("/lol-champ-select/v1/pickable-champion-ids"),
+            self._json("/lol-champ-select/v1/bannable-champion-ids"))
         if not isinstance(s, dict):
             return None
-        cell = s.get("localPlayerCellId")
-        me = next((p for p in s.get("myTeam") or [] if p.get("cellId") == cell), None)
-        if me is None:
+        sel = lol_select.parse_session(s, self.builds.champion_name,
+                                       pick if isinstance(pick, list) else None,
+                                       ban if isinstance(ban, list) else None)
+        if sel is None:
             return None
-        locked = int(me.get("championId") or 0)
-        champ = locked or int(me.get("championPickIntent") or 0)
-        position = str(me.get("assignedPosition") or "")
-        self.builds.set_target(champ, position, self._mode)
-        name = self.builds.champion_name(champ) if champ else ""
+        sel["mode"] = self._mode
+        self.builds.set_target(sel["champion_id"], sel["position"], self._mode)
+        enemy_ids = [m["champion_id"] for m in sel["enemy_team"] if m["champion_id"]]
+        avail = set(pick) if isinstance(pick, list) else None
+        sel["enemy"] = self.builds.enemy_intel(enemy_ids, avail, self._mode)
+        sel["matchups"] = self.builds.matchups(enemy_ids)
+        self._notify_select(sel)
+        return sel
+
+    def _notify_select(self, sel: dict[str, Any]) -> None:
+        """Avisos no iPad: campeão confirmado, vez de banir/escolher e pouco tempo restante."""
+        locked = sel["me"]["locked_id"]
         if locked and locked != self._locked_champ:
             self._locked_champ = locked
-            notifier.notify("lol", f"{name or 'Campeão'} confirmado", "Build e runas na aba LoL", "info", sound=False)
-        return {"champion_id": champ, "champion": name, "locked": bool(locked),
-                "position": position, "mode": self._mode}
+            notifier.notify("lol", f"{sel['champion'] or 'Campeão'} confirmado", "Build e runas na aba LoL",
+                            "info", sound=False)
+        turn = sel["turn"]
+        key = (turn["action_id"], turn["type"]) if turn else None
+        if key != self._turn_key:
+            self._turn_key, self._turn_warned = key, False
+            if turn:
+                banir = turn["type"] == "ban"
+                notifier.notify("lol", "Sua vez de banir" if banir else "Sua vez de escolher",
+                                f"{int(sel['timer']['left'])}s para decidir", "alert")
+        elif turn and not self._turn_warned and 0 < sel["timer"]["left"] <= 10:
+            self._turn_warned = True
+            notifier.notify("lol", "Só mais alguns segundos", "Confirme sua escolha", "alert")
 
     async def _live_game(self) -> dict[str, Any] | None:
         try:
@@ -331,5 +364,15 @@ def register(d: Dispatcher, cfg: dict) -> Lol:
     d.on("lol.auto_accept", _lol.set_auto_accept)
     d.on("lol.close_client", _lol.close_client)
     d.on("lol.open_client", _lol.open_client)
-    d.on("lol.import_runes", _lol.builds.import_runes)
+    d.on("lol.import_runes", _lol.builds.import_runes, push_state=True)
+    c = _lol.control
+    for name, fn in (("lobby.create", c.create_lobby), ("lobby.positions", c.set_positions),
+                     ("lobby.search", c.search), ("lobby.cancel", c.cancel_search),
+                     ("lobby.leave", c.leave_lobby), ("play_again", c.play_again),
+                     ("select.hover", c.hover), ("select.lock", c.lock), ("select.spells", c.set_spells),
+                     ("select.skin", c.set_skin), ("select.reroll", c.reroll), ("select.bench_swap", c.bench_swap),
+                     ("runes.activate", c.activate_page)):
+        d.on("lol." + name, fn, push_state=True)
+    d.on("lol.select.skins", c.skins)
+    d.on("lol.runes.pages", c.rune_pages)
     return _lol

@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from ..protocol import CommandError
+from . import lol_select
 
 if TYPE_CHECKING:
     from .lol import Lol
@@ -50,6 +51,11 @@ class Builds:
         self.loading = False
         self.error = ""
         self._task: asyncio.Task | None = None
+        self.counters: list[dict] = []                  # {champion_id, play, win}: minha vitória contra cada campeão
+        self._meta_try = 0.0
+        self._detail: dict[int, dict] = {}              # champions/{id}.json do cliente (tacticalInfo)
+        self._enemy_counters: dict[tuple, list[dict]] = {}   # (id inimigo, modo) -> counters do op.gg
+        self._enemy_tasks: dict[tuple, asyncio.Task] = {}
 
     # ---------- metadados locais (nomes/ícones) ----------
     async def _load_meta(self) -> None:
@@ -68,12 +74,40 @@ class Builds:
                                             "price": int(e.get("priceTotal") or e.get("price") or 0),
                                             "from": [int(x) for x in e.get("from") or []],
                                             "cats": list(e.get("categories") or []),
-                                            "alias": str(e.get("alias") or ""), "roles": list(e.get("roles") or [])}
+                                            "alias": str(e.get("alias") or ""), "roles": list(e.get("roles") or []),
+                                            "modes": list(e.get("gameModes") or [])}
         styles = await self.lol._json(ASSET_PREFIX + "v1/perkstyles.json")
         meta["style"] = {int(s["id"]): {"name": s.get("name", ""), "icon": s.get("iconPath", "")}
                          for s in (styles or {}).get("styles", [])}
         if all(meta.values()):
             self._meta, self._meta_key = meta, key
+
+    async def ensure_meta(self) -> None:
+        """Garante nomes/ícones carregados (no máx. uma tentativa a cada 10 s se o cliente não responder)."""
+        if self._meta and self.lol._lcu == self._meta_key:
+            return
+        if time.monotonic() - self._meta_try < 10:
+            return
+        self._meta_try = time.monotonic()
+        await self._load_meta()
+
+    def champions(self) -> list[dict]:
+        """Catálogo para a grade de campeões do iPad (sem id -1 / "nenhum")."""
+        table = self._meta.get("champ", {})
+        # ids >= 10000 são variantes de modos especiais (ex.: 60103 = Ahri); fora delas o campeão aparece duas vezes
+        out = [{"id": cid, "name": c["name"], "roles": c.get("roles") or []}
+               for cid, c in table.items()
+               if cid > 0 and c.get("name") and not (cid >= 10000 and self.base_champion(cid) in table)]
+        out.sort(key=lambda c: c["name"].lower())
+        return out
+
+    def spells(self, mode: str) -> list[dict]:
+        """Feitiços de invocador disponíveis no modo (ex.: Golpear não existe no ARAM)."""
+        out = [{"id": sid, "name": e["name"], "icon": e["icon"]}
+               for sid, e in self._meta.get("spell", {}).items()
+               if e.get("name") and (not e.get("modes") or mode in e["modes"])]
+        out.sort(key=lambda e: e["name"].lower())
+        return out
 
     def _ref(self, kind: str, ids: list) -> list[dict]:
         table = self._meta.get(kind, {})
@@ -143,8 +177,16 @@ class Builds:
             self._task.cancel()
         self._task = asyncio.get_running_loop().create_task(self._fetch(target))
 
+    def clear_enemies(self) -> None:
+        """Nova seleção: descarta o que foi buscado sobre inimigos da anterior."""
+        for t in self._enemy_tasks.values():
+            t.cancel()
+        self._enemy_tasks.clear()
+        self._enemy_counters.clear()
+
     def clear(self) -> None:
         self.target, self.build, self.error, self.loading = None, None, "", False
+        self.counters = []
 
     async def _fetch(self, target: tuple[int, str, str]) -> None:
         champ, pos, mode = target
@@ -155,6 +197,7 @@ class Builds:
             build = self._parse(champ, pos, data)
             if self.target == target:
                 self.build = build
+                self.counters = list(data.get("counters") or [])
                 log.info("build carregada: %s %s", build["champion"], pos)
         except asyncio.CancelledError:
             raise
@@ -223,14 +266,8 @@ class Builds:
             "position": pos, "position_label": POS_LABEL.get(pos, pos),
             "win_rate": stats.get("win_rate"), "pick_rate": stats.get("pick_rate"),
             "play": stats.get("play"), "tier": tier,
-            "runes": {
-                "primary_style": self._ref("style", [rune.get("primary_page_id", 0)])[0],
-                "sub_style": self._ref("style", [rune.get("secondary_page_id", 0)])[0],
-                "primary": self._ref("perk", rune.get("primary_rune_ids") or []),
-                "secondary": self._ref("perk", rune.get("secondary_rune_ids") or []),
-                "shards": self._ref("perk", rune.get("stat_mod_ids") or []),
-                "win_rate": (rune.get("win", 0) / rune["play"]) if rune.get("play") else None,
-            },
+            "runes": self._rune_set(rune),
+            "rune_options": [self._rune_set(r) for r in (d.get("runes") or [])[:3]],
             "spells": self._ref("spell", first("summoner_spells").get("ids") or []),
             "starter": self._ref("item", starter),
             "core": self._ref("item", core),
@@ -241,17 +278,79 @@ class Builds:
             "source": "op.gg",
         }
 
+    def _rune_set(self, rune: dict) -> dict:
+        return {
+            "primary_style": self._ref("style", [rune.get("primary_page_id", 0)])[0],
+            "sub_style": self._ref("style", [rune.get("secondary_page_id", 0)])[0],
+            "primary": self._ref("perk", rune.get("primary_rune_ids") or []),
+            "secondary": self._ref("perk", rune.get("secondary_rune_ids") or []),
+            "shards": self._ref("perk", rune.get("stat_mod_ids") or []),
+            "win_rate": (rune.get("win", 0) / rune["play"]) if rune.get("play") else None,
+            "play": rune.get("play"),
+        }
+
     def state(self) -> dict | None:
         if self.target is None:
             return None
         return {"loading": self.loading, "error": self.error, "data": self.build}
 
+    # ---------- time inimigo (seleção de campeões) ----------
+    async def _detail_of(self, champ_id: int) -> dict:
+        if champ_id not in self._detail:
+            d = await self.lol._json(ASSET_PREFIX + f"v1/champions/{int(champ_id)}.json")
+            self._detail[champ_id] = d if isinstance(d, dict) else {}
+        return self._detail[champ_id]
+
+    async def _fetch_enemy(self, champ: int, mode: str) -> None:
+        try:
+            await self._detail_of(champ)
+            if mode != "ARAM":
+                data, _pos = await self._opgg(champ, "", mode)
+                self._enemy_counters[(champ, mode)] = list(data.get("counters") or [])
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:  # noqa: BLE001 - dica extra: falhar não pode atrapalhar a seleção
+            log.warning("dados do inimigo %s indisponíveis: %s", champ, e)
+            self._enemy_counters[(champ, mode)] = []
+
+    def enemy_intel(self, enemy_ids: list[int], available: set[int] | None, mode: str) -> dict:
+        """Composição, tipo de dano e melhores respostas dos campeões inimigos já revelados."""
+        ids = [self.base_champion(i) for i in enemy_ids if i]
+        champs = self._meta.get("champ", {})
+        for cid in ids:
+            key = (cid, mode)
+            if key not in self._enemy_counters and key not in self._enemy_tasks:
+                self._enemy_tasks[key] = asyncio.get_running_loop().create_task(self._fetch_enemy(cid, mode))
+        dmg = lambda cid: lol_select.damage_share(self._detail.get(cid), champs.get(cid, {}).get("roles"))  # noqa: E731
+        picks = []
+        for cid in ids:
+            counters = self._enemy_counters.get((cid, mode))
+            picks.append({"champion_id": cid, "champion": self.champion_name(cid),
+                          "answers": lol_select.best_answers(counters or [], available) if counters else [],
+                          "loading": counters is None})
+        return {"damage": lol_select.team_damage(ids, dmg),
+                "comp": lol_select.comp_roles([champs.get(i, {}).get("roles") or [] for i in ids]),
+                "picks": picks}
+
+    def matchups(self, enemy_ids: list[int]) -> list[dict]:
+        """Meu campeão (build carregada) contra cada inimigo revelado: win_rate = minha taxa de vitória."""
+        by_id = {int(c.get("champion_id", 0)): c for c in self.counters}
+        out = []
+        for e in (self.base_champion(i) for i in enemy_ids if i):
+            c = by_id.get(e)
+            if c and c.get("play"):
+                out.append({"champion_id": e, "win_rate": c["win"] / c["play"], "play": c["play"]})
+        return out
+
     # ---------- importar runas ----------
-    async def import_runes(self, _v: Any = None) -> str:
+    async def import_runes(self, v: Any = None) -> str:
+        """Importa runas da build carregada. `{"index": n}` escolhe uma das opções (0 = mais popular)."""
         b = self.build
         if not b:
             raise CommandError("nenhuma build carregada")
-        r = b["runes"]
+        idx = int(v.get("index", 0)) if isinstance(v, dict) else 0
+        options = b.get("rune_options") or []
+        r = options[idx] if 0 <= idx < len(options) else b["runes"]
         perks = [p["id"] for p in r["primary"] + r["secondary"] + r["shards"]]
         if len(perks) != 9:
             raise CommandError("build sem runas completas")

@@ -186,12 +186,14 @@
         <div class="lol-btns">
           <button class="btn accent" data-action="lol.accept" id="lol-accept-btn">✔ Aceitar partida</button>
           <button class="btn" id="lol-auto">🤖 Aceitar automático:&nbsp;<b id="lol-auto-state">não</b></button>
+          <button class="btn accent hidden" id="lol-again" data-action="lol.play_again">↺ Jogar de novo</button>
           <button class="btn" data-action="lol.open_client">▶ Abrir cliente</button>
           <button class="btn hold warn" data-action="lol.close_client">✕ Fechar cliente (segure)<b class="hold-fill"></b></button>
         </div>
       </div>
       <div class="card lol-game">
         <div class="card-title">
+          <button class="btn mini chip hidden" id="lol-v-sel">Seleção</button>
           <button class="btn mini chip" id="lol-v-game">Partida</button>
           <button class="btn mini chip" id="lol-v-build">Build</button>
           <button class="btn mini chip hidden" id="lol-focus">Telemetria</button>
@@ -213,6 +215,41 @@
             <div class="lb-row"><span class="lb-label">Opções</span><div id="lb-situ" class="lb-icons"></div></div>
             <div class="lb-row"><span class="lb-label">Skills</span><div id="lb-skills" class="lb-skills"></div></div>
             <div id="lb-src" class="muted small lb-src">&nbsp;</div>
+          </div>
+        </div>
+        <div id="lol-sel" class="hidden">
+          <div id="ls-lobby" class="hidden scrollable">
+            <div class="ls-lobby-h"><b id="ls-lobby-title">Escolha o modo de jogo</b><small id="ls-lobby-sub" class="muted"></small></div>
+            <div id="ls-queues" class="ls-queues"></div>
+            <div id="ls-pos" class="ls-pos hidden"></div>
+            <div id="ls-members" class="ls-members muted small"></div>
+            <div class="ls-lobby-btns">
+              <button class="btn accent ls-big" id="ls-search" data-action="lol.lobby.search">🔍 Buscar partida</button>
+              <button class="btn warn ls-big hidden" id="ls-cancel" data-action="lol.lobby.cancel">✕ Cancelar busca</button>
+              <button class="btn hold warn ls-leave" id="ls-leave" data-action="lol.lobby.leave">Sair do lobby (segure)<b class="hold-fill"></b></button>
+            </div>
+          </div>
+          <div id="ls-cs" class="hidden">
+            <div class="ls-top">
+              <div class="ls-phase"><b id="ls-phase">—</b><span id="ls-timer" class="ls-timer">0</span></div>
+              <div class="ls-mypick"><i id="ls-my-img" class="lv-pic ls-pic"></i>
+                <div class="ls-mypick-t"><b id="ls-my-name" class="ellipsis">—</b><small id="ls-my-pos" class="muted">&nbsp;</small></div></div>
+              <button class="btn accent ls-lock" id="ls-lock" data-fn="ls-lock">TRAVAR</button>
+            </div>
+            <div class="ls-body">
+              <div class="ls-teams" id="ls-teams"></div>
+              <div class="ls-pick">
+                <div class="ls-filter" id="ls-filter"></div>
+                <div class="ls-gridwrap">
+                  <div id="ls-grid" class="ls-grid scrollable"></div>
+                  <div id="ls-rail" class="ls-rail"></div>
+                </div>
+              </div>
+              <div class="ls-side">
+                <div class="ls-chips" id="ls-side-chips"></div>
+                <div id="ls-side-body" class="ls-side-body scrollable"></div>
+              </div>
+            </div>
           </div>
         </div>
         <div id="lol-nogame" class="lol-nogame muted">Fora de partida</div>

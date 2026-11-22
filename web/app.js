@@ -363,6 +363,7 @@
     if (!btn.classList.contains('tab')) trackShift(btn.dataset.action || btn.id || layoutKey(btn));
     if (btn.classList.contains('tab')) { switchTab(btn.dataset.tab); return; }
     if (btn.id && clickHandlers[btn.id]) { clickHandlers[btn.id](btn); return; }
+    if (btn.dataset.fn && clickHandlers[btn.dataset.fn]) { clickHandlers[btn.dataset.fn](btn); return; }
     if (btn.dataset.lpage !== undefined) { renderLauncher(+btn.dataset.lpage); return; }
     var action = btn.dataset.action;
     if (!action) return;
@@ -789,9 +790,10 @@
   };
   var lolChampId = null, lolAuto = false;
   // Em partida, na aba LoL, a telemetria do topo some para dar altura às abas de análise.
-  var lolInGame = false, lolFocusOff = store('cc_lol_focus') === 'off';
+  var lolInGame = false, lolInSel = false, lolFocusOff = store('cc_lol_focus') === 'off';
+  var SEL_PHASES = { Lobby: 1, Matchmaking: 1, ReadyCheck: 1, ChampSelect: 1 };
   function applyGameFocus() {
-    var on = currentTab === 'lol' && lolInGame && !lolFocusOff, app = $('#app');
+    var on = currentTab === 'lol' && (lolInGame || lolInSel) && !lolFocusOff, app = $('#app');
     if (app.classList.contains('game-focus') === on) return;
     app.classList.toggle('game-focus', on);
     fixGridRows();   // re-mede a altura das abas (--page-h)
@@ -828,11 +830,21 @@
 
     var g = l.game;
     lolInGame = !!g;
-    $('.page[data-page="lol"]').classList.toggle('lol-ingame', lolInGame);
-    $('#lol-focus').classList.toggle('hidden', !lolInGame);
+    lolInSel = !!SEL_PHASES[l.phase] && !g;
+    var pg = $('.page[data-page="lol"]');
+    pg.classList.toggle('lol-ingame', lolInGame);
+    pg.classList.toggle('lol-sel-mode', lolInSel);
+    pg.classList.toggle('lol-champsel', lolInSel && l.phase === 'ChampSelect');
+    $('#lol-focus').classList.toggle('hidden', !(lolInGame || lolInSel));
     $('#lol-focus').classList.toggle('on', !lolFocusOff);
+    $('#lol-again').classList.toggle('hidden', !AGAIN_PHASES[l.phase]);
     applyGameFocus();
     var view = lolViewFor(l);
+    $('#lol-v-sel').classList.toggle('hidden', !lolInSel);
+    setText($('#lol-v-sel'), l.phase === 'ChampSelect' ? 'Seleção' : 'Lobby');
+    $('#lol-v-sel').classList.toggle('on', view === 'sel');
+    $('#lol-sel').classList.toggle('hidden', view !== 'sel');
+    renderSel(l, view === 'sel');
     $('#lol-v-game').classList.toggle('on', view === 'game');
     $('#lol-v-build').classList.toggle('on', view === 'build');
     $('#lol-build').classList.toggle('hidden', view !== 'build');
@@ -863,14 +875,18 @@
   // ----- Build (seleção de campeões / partida) -----
   var LOL_POS = { top: 'Topo', jungle: 'Selva', middle: 'Meio', mid: 'Meio', bottom: 'Atirador', utility: 'Suporte' };
   var lolViewPick = null, lolViewPhase = null, lbSig = '';
+  function rerenderLol() { if (lastState) renderLol(window.__ccLolOverride || lastState.lol); }
   // Automático: seleção de campeões -> Build; partida -> Partida. Os chips mudam até a próxima fase.
   function lolViewFor(l) {
     if (l.phase !== lolViewPhase) { lolViewPhase = l.phase; lolViewPick = null; }
     if (lolViewPick) return lolViewPick;
-    return l.phase === 'InProgress' ? 'game' : (l.build ? 'build' : 'game');
+    if (l.phase === 'InProgress') return 'game';
+    if (SEL_PHASES[l.phase]) return 'sel';
+    return l.build ? 'build' : 'game';
   }
-  clickHandlers['lol-v-game'] = function () { lolViewPick = 'game'; if (lastState) renderLol(lastState.lol); };
-  clickHandlers['lol-v-build'] = function () { lolViewPick = 'build'; if (lastState) renderLol(lastState.lol); };
+  clickHandlers['lol-v-sel'] = function () { lolViewPick = 'sel'; rerenderLol(); };
+  clickHandlers['lol-v-game'] = function () { lolViewPick = 'game'; rerenderLol(); };
+  clickHandlers['lol-v-build'] = function () { lolViewPick = 'build'; rerenderLol(); };
   function assetUrl(p) { return p ? '/lol/asset?p=' + encodeURIComponent(p) : ''; }
   function icon(x, cls) {
     return '<img class="' + (cls || '') + '" src="' + esc(assetUrl(x.icon)) + '" alt="' + esc(x.name) + '">';
@@ -1110,6 +1126,377 @@
       toast(v ? 'Aceitar automático ligado' : 'Aceitar automático desligado');
     }).catch(function (e) { toast(e.message, true); });
   };
+
+  // ---------------------------------------------------------------- LoL: lobby e seleção de campeões
+  var AGAIN_PHASES = { WaitingForStats: 1, PreEndOfGame: 1, EndOfGame: 1 };
+  var POS_LBL = { TOP: 'Topo', JUNGLE: 'Selva', MIDDLE: 'Meio', BOTTOM: 'Atirador', UTILITY: 'Suporte', FILL: 'Qualquer' };
+  var POS_ORDER = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY', 'FILL'];
+  var CLASS_PT = { mage: 'Mago', marksman: 'Atirador', fighter: 'Lutador', assassin: 'Assassino', tank: 'Tanque', support: 'Suporte' };
+  var CLASS_ORDER = ['mage', 'marksman', 'fighter', 'assassin', 'tank', 'support'];
+  var cat = { champs: [], byId: {}, spells: [], spellById: {}, queues: [], mode: '', at: 0, busy: false, tiles: {} };
+  var selTab = 'runes', selSlot = 1, selRole = '', selOnlyAvail = true;
+  var selSig = '', selTeamsSig = '', selSideSig = '', selLobbySig = '', selLast = null, lobbyLast = null;
+  var selClock = { left: 0, at: 0, infinite: false, on: false };
+  var selPages = null, selPagesAt = 0, selPagesBusy = false;
+  var selSkins = null, selSkinsFor = 0, selSkinsBusy = false;
+
+  function champIcon(id) { return id ? '/lol/champion-icon/' + id : ''; }
+  function champName(id) { var c = cat.byId[id]; return c ? c.name : ''; }
+  function sendToast(action, value, okMsg, after) {
+    send(action, value).then(function (r) {
+      if (okMsg) toast(typeof okMsg === 'function' ? okMsg(r) : okMsg);
+      if (after) after(r);
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  // Catálogo (campeões, feitiços do modo, filas): vem por HTTP uma vez, não em todo tick do estado.
+  function loadCatalog(mode) {
+    var now = Date.now();
+    if (cat.busy || (cat.champs.length && cat.mode === mode) || now - cat.at < 4000) return;
+    cat.busy = true; cat.at = now;
+    fetch('/lol/catalog?mode=' + encodeURIComponent(mode)).then(function (r) { return r.json(); }).then(function (c) {
+      cat.busy = false;
+      if (!c.champions || !c.champions.length) return;   // cliente ainda sem dados: tenta de novo
+      var changed = c.champions.length !== cat.champs.length;
+      cat.champs = c.champions; cat.byId = {};
+      c.champions.forEach(function (x) { cat.byId[x.id] = x; });
+      cat.spells = c.spells || []; cat.spellById = {};
+      cat.spells.forEach(function (x) { cat.spellById[x.id] = x; });
+      cat.queues = c.queues || []; cat.mode = mode;
+      if (changed || !cat.tiles[c.champions[0].id]) buildGrid();
+      selSig = selTeamsSig = selSideSig = selLobbySig = '';
+      rerenderLol();
+    }).catch(function () { cat.busy = false; });
+  }
+
+  function buildGrid() {
+    var grid = $('#ls-grid');
+    grid.innerHTML = cat.champs.map(function (c) {
+      return '<button class="btn ls-tile" data-fn="ls-champ" data-id="' + c.id + '"><i class="ls-ti" style="background-image:url(&quot;' +
+        champIcon(c.id) + '&quot;)"></i><span>' + esc(c.name) + '</span></button>';
+    }).join('');
+    cat.tiles = {};
+    $$('.ls-tile', grid).forEach(function (el) { cat.tiles[el.dataset.id] = el; });
+    var seen = {};
+    cat.champs.forEach(function (c) { seen[initial(c.name)] = 1; });
+    $('#ls-rail').innerHTML = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(function (l) { return '<span>' + l + '</span>'; }).join('');
+    $('#ls-filter').innerHTML = CLASS_ORDER.map(function (k) {
+      return '<button class="btn mini chip" data-fn="ls-role" data-r="' + k + '">' + CLASS_PT[k] + '</button>';
+    }).join('') + '<button class="btn mini chip on" id="ls-avail" data-fn="ls-avail">Disponíveis</button>';
+  }
+  function initial(name) {
+    var s = String(name || '?');
+    try { s = s.normalize('NFD').replace(/[̀-ͯ]/g, ''); } catch (e) { /* ignora */ }
+    return s.charAt(0).toUpperCase();
+  }
+
+  // Régua A–Z: arrastar o dedo rola a grade até a letra.
+  (function () {
+    var rail = $('#ls-rail'), grid = $('#ls-grid'), down = false;
+    function jump(e) {
+      var r = rail.getBoundingClientRect();
+      var i = Math.max(0, Math.min(25, Math.floor((e.clientY - r.top) / r.height * 26)));
+      var tiles = $$('.ls-tile', grid);
+      for (var k = 0; k < tiles.length; k++) {
+        var t = tiles[k];
+        if (t.classList.contains('hide')) continue;
+        var l = initial(cat.byId[t.dataset.id] && cat.byId[t.dataset.id].name).charCodeAt(0) - 65;
+        if (l >= i) { grid.scrollTop = t.offsetTop; return; }
+      }
+      grid.scrollTop = grid.scrollHeight;
+    }
+    rail.addEventListener('pointerdown', function (e) {
+      e.preventDefault(); down = true;
+      try { rail.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ }
+      jump(e);
+    });
+    rail.addEventListener('pointermove', function (e) { if (down) jump(e); });
+    function up() { down = false; }
+    rail.addEventListener('pointerup', up); rail.addEventListener('pointercancel', up);
+  })();
+
+  // ----- toques -----
+  clickHandlers['ls-champ'] = function (btn) {
+    sendToast('lol.select.hover', { champion_id: +btn.dataset.id });
+  };
+  clickHandlers['ls-lock'] = function () {
+    sendToast('lol.select.lock', null, function (kind) { return kind === 'ban' ? 'Banimento confirmado' : 'Campeão confirmado'; });
+  };
+  clickHandlers['ls-role'] = function (btn) {
+    selRole = selRole === btn.dataset.r ? '' : btn.dataset.r;
+    selSig = ''; rerenderLol();
+  };
+  clickHandlers['ls-avail'] = function () {
+    selOnlyAvail = !selOnlyAvail; selSig = ''; rerenderLol();
+  };
+  clickHandlers['ls-tab'] = function (btn) {
+    selTab = btn.dataset.k; selSideSig = ''; rerenderLol();
+  };
+  clickHandlers['ls-enemy'] = function () { selTab = 'enemy'; selSideSig = ''; rerenderLol(); };
+  clickHandlers['ls-rune'] = function (btn) {
+    sendToast('lol.import_runes', { index: +btn.dataset.i }, function (n) { return 'Runas importadas: ' + n; },
+      function () { selPagesAt = 0; selSideSig = ''; });
+  };
+  clickHandlers['ls-page'] = function (btn) {
+    sendToast('lol.runes.activate', { id: +btn.dataset.id }, 'Página de runas ativada', function () { selPagesAt = 0; });
+  };
+  clickHandlers['ls-slot'] = function (btn) { selSlot = +btn.dataset.s; selSideSig = ''; rerenderLol(); };
+  clickHandlers['ls-spell'] = function (btn) {
+    var me = selLast && selLast.me; if (!me) return;
+    var id = +btn.dataset.id, p = {};
+    if (selSlot === 1) { p.spell1 = id; if (id === me.spell2) p.spell2 = me.spell1; }
+    else { p.spell2 = id; if (id === me.spell1) p.spell1 = me.spell2; }
+    sendToast('lol.select.spells', p);
+  };
+  clickHandlers['ls-spells-rec'] = function (btn) {
+    sendToast('lol.select.spells', { spell1: +btn.dataset.a, spell2: +btn.dataset.b }, 'Feitiços aplicados');
+  };
+  clickHandlers['ls-queue'] = function (btn) { sendToast('lol.lobby.create', { queue_id: +btn.dataset.id }); };
+  clickHandlers['ls-pos'] = function (btn) {
+    var lb = lobbyLast || {}, slot = +btn.dataset.slot, pos = btn.dataset.pos;
+    var first = lb.first || '', second = lb.second || '';
+    if (slot === 1) { first = pos; if (second === pos) second = ''; if (pos === 'FILL') second = ''; }
+    else { if (first === 'FILL') return; second = second === pos ? '' : pos; if (first === pos) first = ''; }
+    sendToast('lol.lobby.positions', { first: first, second: second });
+  };
+
+  // ----- relógio da fase -----
+  setInterval(function () {
+    if (!selClock.on) return;
+    var left = Math.max(0, selClock.left - (Date.now() - selClock.at) / 1000), el = $('#ls-timer');
+    setText(el, selClock.infinite ? '∞' : Math.ceil(left));
+    el.classList.toggle('urgent', !selClock.infinite && left <= 10);
+  }, 250);
+
+  // ----- entrada: decide lobby x seleção -----
+  function renderSel(l, visible) {
+    if (!l.select || l.phase !== 'ChampSelect') selClock.on = false;
+    if (!visible) return;
+    var inCS = l.phase === 'ChampSelect' && l.select;
+    $('#ls-cs').classList.toggle('hidden', !inCS);
+    $('#ls-lobby').classList.toggle('hidden', !!inCS);
+    loadCatalog(inCS ? (l.select.mode || 'CLASSIC') : 'CLASSIC');
+    if (inCS) renderCS(l.select, l); else renderLobby(l);
+  }
+
+  // ----- lobby -----
+  function renderLobby(l) {
+    var lb = l.lobby; lobbyLast = lb;
+    var mm = l.phase === 'Matchmaking', rc = l.phase === 'ReadyCheck';
+    var sub = mm && l.queue ? 'Na fila há ' + fmtTime(l.queue.time) + (l.queue.estimated ? ' · estimado ' + fmtTime(l.queue.estimated) : '')
+      : rc ? 'Partida encontrada!' : (lb ? (lb.can_start ? 'Pronto para buscar partida' : 'Aguardando o lobby ficar pronto') : '');
+    setText($('#ls-lobby-title'), lb ? (lb.queue || 'Lobby') : 'Escolha o modo de jogo');
+    setText($('#ls-lobby-sub'), sub);
+    $('#ls-search').classList.toggle('hidden', mm || rc || !lb);
+    $('#ls-search').classList.toggle('off', !(lb && lb.can_start));
+    $('#ls-cancel').classList.toggle('hidden', !mm);
+    $('#ls-leave').classList.toggle('hidden', !lb || mm || rc);
+    var sig = JSON.stringify([lb, cat.queues, mm || rc]);
+    if (sig === selLobbySig) return;
+    selLobbySig = sig;
+    var busy = mm || rc;
+    var groups = [], byGroup = {};
+    cat.queues.forEach(function (q) {
+      if (!byGroup[q.group]) { byGroup[q.group] = []; groups.push(q.group); }
+      byGroup[q.group].push(q);
+    });
+    $('#ls-queues').innerHTML = busy ? '' : groups.map(function (g) {
+      return '<div class="ls-qh">' + esc(g) + '</div><div class="ls-qgrid">' + byGroup[g].map(function (q) {
+        return '<button class="btn ls-q' + (lb && lb.queue_id === q.id ? ' on' : '') + '" data-fn="ls-queue" data-id="' + q.id + '">' + esc(q.name) + '</button>';
+      }).join('') + '</div>';
+    }).join('');
+    var pos = $('#ls-pos');
+    pos.classList.toggle('hidden', !(lb && lb.positions) || busy);
+    if (lb && lb.positions) {
+      pos.innerHTML = [1, 2].map(function (slot) {
+        var cur = slot === 1 ? lb.first : lb.second;
+        return '<div class="ls-pos-row"><b>' + slot + 'ª rota</b>' + POS_ORDER.map(function (p) {
+          if (slot === 2 && p === 'FILL') return '';
+          return '<button class="btn' + (cur === p ? ' on' : '') + '" data-fn="ls-pos" data-slot="' + slot + '" data-pos="' + p + '">' + POS_LBL[p] + '</button>';
+        }).join('') + '</div>';
+      }).join('');
+    }
+    $('#ls-members').innerHTML = lb && lb.members.length > 1 ? 'Grupo: ' + lb.members.map(function (m) {
+      return esc(m.name || '?') + (m.leader ? ' ★' : '');
+    }).join(' · ') : '';
+  }
+
+  // ----- seleção de campeões -----
+  function renderCS(s, l) {
+    selLast = s;
+    var t = s.timer || {};
+    selClock.left = t.left || 0; selClock.at = Date.now(); selClock.infinite = !!t.infinite; selClock.on = true;
+    setText($('#ls-phase'), t.label || '—');
+    var turn = s.turn, ban = !!turn && turn.type === 'ban';
+    var my = s.me.locked_id || s.me.hover;
+    $('#ls-my-img').style.backgroundImage = my ? 'url("' + champIcon(my) + '")' : '';
+    setText($('#ls-my-name'), (s.champion || champName(my) || 'Escolha um campeão') + (s.locked ? ' ✔' : ''));
+    setText($('#ls-my-pos'), LOL_POS[(s.position || '').toLowerCase()] || (s.mode === 'ARAM' ? 'ARAM' : 'sem posição'));
+    var lock = $('#ls-lock');
+    setText(lock, ban ? 'BANIR' : (turn ? 'TRAVAR' : (s.locked ? 'TRAVADO ✔' : 'AGUARDE…')));
+    lock.classList.toggle('off', !turn || !s.me.hover);
+    lock.classList.toggle('ban', ban);
+    renderTeams(s);
+    renderGrid(s, ban);
+    renderSideChips(s);
+    renderSideBody(s, l);
+  }
+
+  function memberRow(m, enemy) {
+    var name = m.champion || (m.champion_id ? champName(m.champion_id) : '');
+    var inner = '<i class="ls-ic" style="background-image:url(&quot;' + champIcon(m.champion_id) + '&quot;)"></i>' +
+      '<span class="ls-nm ellipsis' + (m.locked ? '' : ' soft') + '">' + esc(name || (m.acting ? 'Escolhendo…' : '—')) + '</span>' +
+      '<small>' + esc(POS_PT[m.position] || '') + '</small>';
+    var cls = 'ls-pl' + (m.me ? ' me' : '') + (m.acting ? ' acting' : '');
+    return enemy ? '<button class="btn ' + cls + '" data-fn="ls-enemy">' + inner + '</button>' : '<div class="' + cls + '">' + inner + '</div>';
+  }
+  function banIcons(ids) {
+    return ids.map(function (id) { return '<i class="ls-ic" title="' + esc(champName(id)) + '" style="background-image:url(&quot;' + champIcon(id) + '&quot;)"></i>'; }).join('');
+  }
+  function renderTeams(s) {
+    var sig = JSON.stringify([s.my_team, s.enemy_team, s.bans, cat.champs.length]);
+    if (sig === selTeamsSig) return;
+    selTeamsSig = sig;
+    var hasBans = s.bans.mine.length || s.bans.theirs.length;
+    $('#ls-teams').innerHTML = '<div class="ls-th">Seu time</div>' + s.my_team.map(function (m) { return memberRow(m, false); }).join('') +
+      '<div class="ls-th enemy">Inimigos</div>' + s.enemy_team.map(function (m) { return memberRow(m, true); }).join('') +
+      (hasBans ? '<div class="ls-bans"><div class="ls-bans-row"><b>Bans</b>' + banIcons(s.bans.mine) + '</div>' +
+        '<div class="ls-bans-row"><b>Deles</b>' + banIcons(s.bans.theirs) + '</div></div>' : '');
+  }
+
+  function renderGrid(s, ban) {
+    if (!cat.champs.length) return;
+    var sig = [s.avail.join(','), s.me.hover, s.avail_kind, selRole, selOnlyAvail, s.bans.mine.join(','), s.bans.theirs.join(',')].join('|');
+    if (sig === selSig) return;
+    selSig = sig;
+    $('#ls-grid').classList.toggle('ban', ban);
+    var avail = {}, known = s.avail.length > 0;
+    s.avail.forEach(function (id) { avail[id] = 1; });
+    cat.champs.forEach(function (c) {
+      var el = cat.tiles[c.id]; if (!el) return;
+      var off = known && !avail[c.id];
+      el.classList.toggle('off', off);
+      el.classList.toggle('sel', c.id === s.me.hover);
+      el.classList.toggle('hide', (selOnlyAvail && off) || (!!selRole && (c.roles || []).indexOf(selRole) < 0));
+    });
+    $$('#ls-filter .btn').forEach(function (b) {
+      if (b.dataset.r) b.classList.toggle('on', b.dataset.r === selRole);
+      else b.classList.toggle('on', selOnlyAvail);
+    });
+  }
+
+  function renderSideChips(s) {
+    var aram = s.bench.length || s.can_reroll;
+    var tabs = [['runes', 'Runas'], ['spells', 'Feitiços'], ['enemy', 'Inimigos'], ['extra', aram ? 'ARAM' : 'Skin']];
+    var sig = selTab + '|' + tabs[3][1];
+    if (sig === $('#ls-side-chips').dataset.sig) return;
+    $('#ls-side-chips').dataset.sig = sig;
+    $('#ls-side-chips').innerHTML = tabs.map(function (t) {
+      return '<button class="btn mini chip' + (t[0] === selTab ? ' on' : '') + '" data-fn="ls-tab" data-k="' + t[0] + '">' + t[1] + '</button>';
+    }).join('');
+  }
+
+  function renderSideBody(s, l) {
+    var body = $('#ls-side-body'), html = '', sig;
+    if (selTab === 'runes') {
+      var d = l.build && l.build.data;
+      if (!selPages || Date.now() - selPagesAt > 20000) loadPages();
+      sig = 'r|' + (d ? d.champion_id + d.position : (l.build ? (l.build.loading ? 'L' : 'E') : '')) + '|' + JSON.stringify(selPages);
+      if (sig === selSideSig) return;
+      html = d ? '<div class="ls-line"><b>' + esc(d.champion) + ' · ' + esc(d.position_label) + '</b> <span class="muted">' + pct(d.win_rate) +
+        ' vitórias</span></div>' + (d.rune_options || [d.runes]).map(function (r, i) { return runeCard(r, i); }).join('')
+        : '<div class="ls-line muted">' + esc(!l.build ? 'Escolha um campeão para ver as runas' : (l.build.loading ? 'Buscando build…' : (l.build.error || 'Build indisponível'))) + '</div>';
+      html += '<div class="ls-sub">Suas páginas</div>' + (selPages ? (selPages.length ? selPages.map(function (p) {
+        return '<button class="btn ls-page" data-fn="ls-page" data-id="' + p.id + '">' + icon(p.primary_style) + icon(p.sub_style) +
+          '<span class="nm">' + esc(p.name) + '</span>' + (p.active ? '<b class="ok">✔</b>' : '') + '</button>';
+      }).join('') : '<div class="ls-line muted">Nenhuma página</div>') : '<div class="ls-line muted">Carregando…</div>');
+    } else if (selTab === 'spells') {
+      var me = s.me, rec = l.build && l.build.data && l.build.data.spells;
+      sig = ['s', me.spell1, me.spell2, selSlot, cat.spells.length, rec ? rec.map(function (x) { return x.id; }).join() : ''].join('|');
+      if (sig === selSideSig) return;
+      var sp = function (id) { var x = cat.spellById[id]; return x ? '<i style="background-image:url(&quot;' + esc(assetUrl(x.icon)) + '&quot;)"></i>' + esc(x.name) : esc(String(id || '—')); };
+      html = '<div class="ls-slots"><button class="btn' + (selSlot === 1 ? ' on' : '') + '" data-fn="ls-slot" data-s="1">' + sp(me.spell1) + '</button>' +
+        '<button class="btn' + (selSlot === 2 ? ' on' : '') + '" data-fn="ls-slot" data-s="2">' + sp(me.spell2) + '</button></div>';
+      if (rec && rec.length >= 2) html += '<button class="btn ls-apply" data-fn="ls-spells-rec" data-a="' + rec[0].id + '" data-b="' + rec[1].id + '">Aplicar recomendado: ' +
+        esc(rec[0].name) + ' + ' + esc(rec[1].name) + '</button>';
+      html += '<div class="ls-sub">Trocar o ' + (selSlot === 1 ? 'primeiro (D)' : 'segundo (F)') + '</div><div class="ls-sp">' + cat.spells.map(function (x) {
+        return '<button class="btn ls-sp-t" data-fn="ls-spell" data-id="' + x.id + '"><i style="background-image:url(&quot;' + esc(assetUrl(x.icon)) + '&quot;)"></i><span>' + esc(x.name) + '</span></button>';
+      }).join('') + '</div>';
+    } else if (selTab === 'enemy') {
+      sig = 'e|' + JSON.stringify([s.enemy, s.matchups, cat.champs.length]);
+      if (sig === selSideSig) return;
+      html = enemyHtml(s);
+    } else {
+      html = extraHtml(s);
+      sig = 'x|' + html;
+      if (sig === selSideSig) return;
+    }
+    selSideSig = sig;
+    body.innerHTML = html;
+  }
+
+  function runeCard(r, i) {
+    return '<div class="ls-ro"><div class="lb-icons">' + icon(r.primary_style, 'style') + icon(r.primary[0] || {}, 'key') + icons(r.primary.slice(1)) + '</div>' +
+      '<div class="lb-icons">' + icon(r.sub_style, 'style') + icons(r.secondary) + '<i class="lb-gap"></i>' + icons(r.shards, 'shard') + '</div>' +
+      '<div class="ls-ro-f"><span class="muted">' + (i === 0 ? 'Mais popular · ' : 'Opção ' + (i + 1) + ' · ') + pct(r.win_rate) + (r.play ? ' · ' + Math.round(r.play / 1000) + 'k' : '') +
+      '</span><button class="btn mini accent" data-fn="ls-rune" data-i="' + i + '">Importar</button></div></div>';
+  }
+  function loadPages() {
+    if (selPagesBusy) return;
+    selPagesBusy = true;
+    send('lol.runes.pages').then(function (p) { selPages = p || []; selPagesAt = Date.now(); selPagesBusy = false; })
+      .catch(function () { selPagesAt = Date.now(); selPagesBusy = false; });
+  }
+
+  function enemyHtml(s) {
+    var e = s.enemy || {}, dm = e.damage, html = '';
+    html += '<div class="ls-line">' + (dm ? 'Dano inimigo (estimativa): <b>' + Math.round(dm.ad_share * 100) + '% físico</b> · considere ' + esc(dm.hint) :
+      '<span class="muted">Poucos inimigos revelados ainda</span>') + '</div>';
+    if (e.comp && Object.keys(e.comp).length) html += '<div class="ls-line muted">Inimigo: ' + esc(compLine(e.comp)) + '</div>';
+    if (s.matchups && s.matchups.length) {
+      html += '<div class="ls-sub">Seu campeão contra</div><div class="ls-mu">' + s.matchups.map(function (m) {
+        return '<span><i class="ls-ic" style="background-image:url(&quot;' + champIcon(m.champion_id) + '&quot;)"></i><b class="' + (m.win_rate >= 0.5 ? 'pos' : 'neg') + '">' +
+          Math.round(m.win_rate * 100) + '%</b></span>';
+      }).join('') + '</div>';
+    }
+    var picks = e.picks || [];
+    if (!picks.length) return html + '<div class="ls-line muted">Os campeões inimigos aparecem aqui quando forem escolhidos.</div>';
+    var avail = {}; s.avail.forEach(function (id) { avail[id] = 1; });
+    html += '<div class="ls-sub">Melhores respostas (taxa de vitória)</div>';
+    picks.forEach(function (p) {
+      html += '<div class="ls-en"><div class="ls-en-h"><i class="ls-ic" style="background-image:url(&quot;' + champIcon(p.champion_id) + '&quot;)"></i>' + esc(p.champion || champName(p.champion_id)) + '</div>';
+      if (p.answers && p.answers.length) {
+        html += '<div class="ls-ans">' + p.answers.slice(0, 6).map(function (a) {
+          return '<button class="btn ls-an' + (s.avail.length && !avail[a.champion_id] ? ' off' : '') + '" data-fn="ls-champ" data-id="' + a.champion_id + '"><i style="background-image:url(&quot;' +
+            champIcon(a.champion_id) + '&quot;)"></i>' + Math.round(a.win_rate * 100) + '%</button>';
+        }).join('') + '</div>';
+      } else html += '<div class="ls-line muted">' + (p.loading ? 'Buscando…' : 'Sem dados de counter') + '</div>';
+      html += '</div>';
+    });
+    return html;
+  }
+
+  function extraHtml(s) {
+    if (s.bench.length || s.can_reroll) {
+      var h = '<button class="btn ls-apply' + (s.can_reroll && s.rerolls > 0 ? '' : ' off') + '" data-action="lol.select.reroll">🎲 Rerrolar (' + (s.rerolls || 0) + ')</button>';
+      h += '<div class="ls-sub">Banco</div><div class="ls-sp">' + s.bench.map(function (id) {
+        return '<button class="btn ls-sp-t" data-action="lol.select.bench_swap" data-v="' + id + '"><i style="background-image:url(&quot;' + champIcon(id) + '&quot;)"></i><span>' + esc(champName(id)) + '</span></button>';
+      }).join('') + '</div>';
+      return h;
+    }
+    var champ = s.me.locked_id || s.me.hover;
+    if (!champ) return '<div class="ls-line muted">Escolha um campeão para ver as skins</div>';
+    if (champ !== selSkinsFor && !selSkinsBusy) {
+      selSkinsBusy = true; selSkinsFor = champ; selSkins = null;
+      send('lol.select.skins').then(function (r) { selSkins = r || []; selSkinsBusy = false; selSideSig = ''; })
+        .catch(function () { selSkins = []; selSkinsBusy = false; });
+    }
+    if (!selSkins) return '<div class="ls-line muted">Carregando skins…</div>';
+    if (!s.allow_skin) return '<div class="ls-line muted">Skins indisponíveis neste modo</div>';
+    return selSkins.length ? '<div class="ls-skins">' + selSkins.map(function (k) {
+      return '<button class="btn ls-skin' + (k.selected ? ' sel' : '') + '" data-action="lol.select.skin" data-v="' + k.id + '" style="background-image:url(&quot;' + esc(assetUrl(k.tile)) + '&quot;)"><span>' + esc(k.name) + '</span></button>';
+    }).join('') + '</div>' : '<div class="ls-line muted">Sem skins liberadas</div>';
+  }
 
   // ---------------------------------------------------------------- Flamengo (placar ao vivo)
   var FLA_TABS = ['stats', 'lineups', 'comm', 'games', 'table'];
