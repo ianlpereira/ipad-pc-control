@@ -12,6 +12,7 @@
     'lol-build': 'Build mais popular do seu campeão: runas (importa com um toque), feitiços, itens e ordem de habilidades.',
     fla: 'Placar ao vivo do seu time, com contagem para o próximo jogo e últimos resultados quando não tem partida.',
     discord: 'Canal de voz do grupo: entrar com um toque, quem está falando acende, mute e volume de cada amigo.',
+    games: 'Seus jogos de Steam, Epic, GOG e Xbox achados sozinhos. Toque para abrir; o jogo aberto ganha selo verde e o botão Fechar (segure).',
     claude: 'Sessões do Claude Code, pedidos de permissão com Permitir/Negar e uso de tokens do dia e da semana.',
     launcher: 'Páginas de atalhos: apps, pastas, sites, scripts, teclas e macros, configurados no PC.',
     system: 'Bloquear, suspender, desligar (segure para confirmar), brilho dos monitores e escurecer o iPad à noite.'
@@ -95,27 +96,27 @@
       lhm: $('#opt-lhm').checked
     };
   }
-  var NAMES = { lol: 'League of Legends', football: 'futebol', discord: 'Discord', claude: 'Claude Code' };
+  var NAMES = { lol: 'League of Legends', football: 'futebol', discord: 'Discord', games: 'Jogos', claude: 'Claude Code' };
 
   function yesNo(v) { return v ? 'sim' : 'não'; }
 
   function commands(c) {
-    var L = [];
-    L.push('# 1. Python 3.13 (pule se já tiver o Python 3.11+ instalado)');
+    var L = [], n = 1;
+    L.push('# ' + (n++) + '. Python 3.13 (pule se já tiver o Python 3.11+ instalado)');
     L.push('winget install -e --id Python.Python.3.13');
     L.push('');
-    L.push('# 2. Baixe o projeto (ou use Code > Download ZIP no GitHub)');
-    L.push('cd $HOME\\Documents');
+    L.push('# ' + (n++) + '. Baixe o projeto (ou use Code > Download ZIP no GitHub)');
+    L.push('cd $HOME\Documents');
     L.push('git clone ' + REPO + '.git');
     L.push('cd ipad-pc-control');
     if (c.lhm) {
       L.push('');
-      L.push('# 3. (opcional) LibreHardwareMonitor para temperaturas e GPU');
+      L.push('# ' + (n++) + '. (opcional) LibreHardwareMonitor para temperaturas e GPU');
       L.push('winget install -e --id LibreHardwareMonitor.LibreHardwareMonitor');
     }
     L.push('');
-    L.push('# ' + (c.lhm ? '4' : '3') + '. Instala, abre o assistente e inicia o servidor');
-    L.push('.\\start.bat');
+    L.push('# ' + (n++) + '. Instala, abre o assistente e inicia o servidor');
+    L.push('.\start.bat');
     L.push('');
     L.push('# Respostas para o assistente:');
     L.push('#   Exigir token de acesso? ' + yesNo(c.token));
@@ -123,6 +124,16 @@
     if (c.feats.football) L.push('#   Time: ' + c.team + ' (id ' + c.teamId + ' no ESPN; escolha na lista ou digite o id)');
     L.push('#   Liberar a porta no firewall? sim');
     L.push('#   Iniciar junto com o Windows? ' + yesNo(c.autostart));
+    L.push('');
+    L.push('# ' + (n++) + '. No iPad: abra no Safari a URL que o console mostrar (http://IP:8765/)');
+    L.push('#    e use Compartilhar > Adicionar à Tela de Início.');
+    if (c.feats.games) {
+      L.push('');
+      L.push('# Aba Jogos: Steam, Epic, GOG e Xbox são achados sozinhos. Riot, Battle.net e EA:');
+      L.push('# veja "Jogos" no README e adicione em "games" > "extra" no config.json.');
+    }
+    L.push('');
+    L.push('# Mudar escolhas depois: .\start.bat --setup');
     return L.join('\n');
   }
 
@@ -130,23 +141,29 @@
     var on = Object.keys(NAMES).filter(function (k) { return c.feats[k]; }).map(function (k) { return NAMES[k]; });
     var L = [];
     L.push('Quero instalar o PC Control Center no meu PC com Windows para usar o meu iPad como painel de controle.');
-    L.push('Aja como um técnico paciente: conduza UMA ETAPA CURTA POR VEZ, em português simples, e espere minha resposta antes do próximo passo.');
+    L.push('Aja como um técnico paciente: conduza UMA ETAPA CURTA POR VEZ, em português simples, e espere minha resposta antes do próximo passo. Quando algo falhar, explique o motivo em uma frase e proponha a correção antes de agir.');
     L.push('');
     L.push('Minhas escolhas:');
     L.push('- Repositório: ' + REPO);
     L.push('- Abas extras: ' + (on.length ? on.join(', ') : 'nenhuma (só Mídia, Mixer, Atalhos, Janelas e Sistema)'));
     if (c.feats.football) L.push('- Time de futebol: ' + c.team + ' (id do ESPN: ' + c.teamId + ')');
     if (c.feats.discord) L.push('- Discord: me ajude a criar o app no portal de desenvolvedores e a pegar o ID do canal de voz do grupo');
+    if (c.feats.games) L.push('- Jogos: depois da instalação, me mostre quais jogos foram achados (Steam, Epic, GOG e Xbox são automáticos) e me ajude a incluir os que faltarem em "games" > "extra" do config.json (Riot/Valorant, Battle.net, EA...). Peça o caminho do .exe em vez de adivinhar.');
     if (c.feats.claude) L.push('- Claude Code: instalar os hooks de alerta (com backup do settings.json)');
     L.push('- Exigir token de acesso: ' + yesNo(c.token));
     L.push('- Temperaturas e GPU com LibreHardwareMonitor: ' + yesNo(c.lhm));
     L.push('- Iniciar junto com o Windows: ' + yesNo(c.autostart));
     L.push('');
-    L.push('Como começar:');
-    L.push('1. Confira se tenho Python 3.11 a 3.13 e git; se faltar, instale (winget) e me avise.');
-    L.push('2. Clone o repositório em Documentos e leia o README.md.');
-    L.push('3. Me peça para rodar o start.bat numa janela própria (o assistente é interativo) e me diga o que responder em cada pergunta, de acordo com as escolhas acima.');
-    L.push('4. No fim, confira se a rede está como Privada e me explique como abrir a URL no Safari do iPad e adicionar à Tela de Início.');
+    L.push('Como conduzir:');
+    L.push('1. Confira se tenho Python 3.11 a 3.13 e git (python --version, git --version); se faltar, instale com winget e me avise. Python 3.14 ainda pode faltar dependência: nesse caso instale o 3.13.');
+    L.push('2. Clone o repositório em Documentos e leia o README.md para seguir as instruções do projeto, não de memória.');
+    if (c.lhm) L.push('3. Instale o LibreHardwareMonitor (winget install -e --id LibreHardwareMonitor.LibreHardwareMonitor).');
+    L.push((c.lhm ? '4' : '3') + '. Me peça para rodar o start.bat numa janela própria (o assistente é interativo, você não consegue digitar nele) e me diga o que responder em cada pergunta, de acordo com as escolhas acima. A primeira execução instala as dependências e demora 1 a 3 minutos.');
+    L.push((c.lhm ? '5' : '4') + '. Quando o servidor subir, confira se a porta responde (http://localhost:8765/) e se a rede do PC está como Privada; se estiver Pública, me explique como trocar. Se o iPad ficar em "Conectando…", o suspeito é firewall ou rede Pública.');
+    L.push((c.lhm ? '6' : '5') + '. Me explique como abrir a URL do console no Safari do iPad, adicionar à Tela de Início e deixar o iPad em modo painel (Bloqueio automático Nunca + Acesso Guiado).');
+    L.push((c.lhm ? '7' : '6') + '. Termine com um resumo curto: o que foi instalado, o que mudou no config.json, e como mudar as escolhas depois (start.bat --setup).');
+    L.push('');
+    L.push('Regras: nunca peça nem mostre senhas ou tokens no chat além do necessário; faça backup antes de alterar arquivos meus (config.json, settings.json do Claude Code); não rode nada que desligue ou reinicie o PC; e peça minha confirmação antes de qualquer comando que eu não tenha visto.');
     return L.join('\n');
   }
 

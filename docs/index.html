@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PC Control Center — seu iPad como Stream Deck do Windows</title>
-  <meta name="description" content="Transforme um iPad (ou qualquer tablet) num painel de controle do PC: volume por app, música, temperaturas, atalhos, League of Legends, placar de futebol, Discord e Claude Code. Instala com dois cliques.">
+  <meta name="description" content="Transforme um iPad (ou qualquer tablet) num painel de controle do PC: volume por app, música, temperaturas, atalhos, seus jogos de PC (Steam, Epic, GOG, Xbox), League of Legends, placar de futebol, Discord e Claude Code. Instala com dois cliques.">
   <meta property="og:title" content="PC Control Center — seu iPad como Stream Deck do Windows">
-  <meta property="og:description" content="Volume por app, música, telemetria, atalhos, LoL, futebol ao vivo, Discord e Claude Code no iPad. Sem app, sem jailbreak.">
+  <meta property="og:description" content="Volume por app, música, telemetria, atalhos, lançador de jogos, LoL, futebol ao vivo, Discord e Claude Code no iPad. Sem app, sem jailbreak.">
   <meta property="og:image" content="assets/og.jpg">
   <meta name="theme-color" content="#070a0f">
   <link rel="icon" href="assets/icon.png">
@@ -33,7 +33,7 @@
     <section class="wrap hero">
       <span class="pill"><i class="dot"></i>Código aberto · sem app · sem jailbreak</span>
       <h1>Aquele iPad parado na gaveta <span class="grad">vira o Stream Deck do seu PC.</span></h1>
-      <p class="lead">Volume de cada app, música tocando, temperaturas, atalhos e macros num toque, direto do Safari. Abas extras para League of Legends, placar de futebol ao vivo, Discord e Claude Code. No PC, dois cliques e um assistente que configura o resto.</p>
+      <p class="lead">Volume de cada app, música tocando, temperaturas, atalhos e macros num toque, direto do Safari. Abas extras para abrir seus jogos (Steam, Epic, GOG e Xbox, detectados sozinhos), League of Legends, placar de futebol ao vivo, Discord e Claude Code. No PC, dois cliques e um assistente que configura o resto.</p>
       <div class="cta">
         <a class="btn primary" href="#instalar">Instalar em 5 minutos <span aria-hidden="true">↓</span></a>
         <a class="btn ghost" href="#preview"><span class="play">▶</span> Ver o painel</a>
@@ -52,6 +52,7 @@
           <button data-shot="lol-build">Build</button>
           <button data-shot="fla">Futebol</button>
           <button data-shot="discord">Discord</button>
+          <button data-shot="games">Jogos</button>
           <button data-shot="claude">Claude</button>
           <button data-shot="launcher">Atalhos</button>
           <button data-shot="system">Sistema</button>
@@ -69,7 +70,7 @@
       <div class="stat"><b>1–15 ms</b><span>de latência na rede local, medida e mostrada no topo do painel</span></div>
       <div class="stat"><b>0 apps</b><span>para instalar no iPad: é uma página no Safari, em tela cheia</span></div>
       <div class="stat"><b>2 cliques</b><span>no <code>start.bat</code>: instala tudo e abre o assistente</span></div>
-      <div class="stat"><b>9 abas</b><span>e só as que você quiser: LoL, futebol, Discord e Claude são opcionais</span></div>
+      <div class="stat"><b>10 abas</b><span>e só as que você quiser: Jogos, LoL, futebol, Discord e Claude são opcionais</span></div>
     </section>
 
     <!-- ================================================================ CONFIGURADOR -->
@@ -82,11 +83,12 @@
         <div class="config-form">
           <div class="q">
             <h3><span class="n">1</span> Quais abas extras você quer?</h3>
-            <p>Mídia, Mixer, Atalhos, Janelas e Sistema vêm sempre. As outras você liga e desliga quando quiser com <code>start.bat --setup</code>.</p>
+            <p>Mídia, Mixer, Atalhos, Janelas e Sistema vêm sempre. As outras você liga e desliga quando quiser com <code>start.bat --setup</code> (ou em <code>"features"</code> no <code>config.json</code>).</p>
             <div class="chips" id="feat-chips">
               <label class="chip"><input type="checkbox" value="lol" checked><span>⚔️ League of Legends</span></label>
               <label class="chip"><input type="checkbox" value="football"><span>⚽ Futebol ao vivo</span></label>
               <label class="chip"><input type="checkbox" value="discord"><span>🎧 Discord</span></label>
+              <label class="chip"><input type="checkbox" value="games" checked><span>🎮 Jogos</span></label>
               <label class="chip"><input type="checkbox" value="claude"><span>✳️ Claude Code</span></label>
             </div>
           </div>
@@ -154,8 +156,10 @@
         <article class="feat"><span class="tag">04 / League of Legends</span><h3>Do lobby ao fim da partida pelo iPad.</h3><p>Aceitar fila com botão gigante, seleção de campeões, build e runas mais populares para importar, análise ao vivo de rota, times e objetivos. Só usa APIs locais oficiais da Riot.</p></article>
         <article class="feat"><span class="tag">05 / Futebol</span><h3>Seu time ao vivo, com alerta de gol.</h3><p>Placar, lances, estatísticas, escalações, narração e tabela. Fora de jogo, contagem para o próximo e os últimos resultados.</p></article>
         <article class="feat"><span class="tag">06 / Discord</span><h3>Entrar na call do grupo com um toque.</h3><p>Quem está falando acende, mute e ensurdecer, volume individual de cada amigo.</p></article>
-        <article class="feat"><span class="tag">07 / Claude Code</span><h3>Aprovar permissões de longe.</h3><p>Lista das sessões, alerta quando uma termina ou espera você, Permitir/Negar pelo iPad e uso de tokens do dia e da semana.</p></article>
-        <article class="feat"><span class="tag">08 / Sistema</span><h3>Janelas, energia e brilho.</h3><p>Desktops virtuais, encaixar, screenshot, bloquear, suspender, desligar (segurando para confirmar), brilho dos monitores via DDC/CI e escurecer o iPad à noite.</p></article>
+        <article class="feat"><span class="tag">07 / Jogos</span><h3>Todos os seus jogos, achados sozinhos.</h3><p>Varre Steam (todos os discos), Epic, GOG e Xbox/Game Pass e mostra a grade com as capas, sem depender do Big Picture. Toque para abrir; segure em "Fechar" para encerrar só aquele jogo. Riot, Battle.net e EA entram com duas linhas no <code>config.json</code>.</p></article>
+        <article class="feat"><span class="tag">08 / Claude Code</span><h3>Aprovar permissões de longe.</h3><p>Lista das sessões, alerta quando uma termina ou espera você, Permitir/Negar pelo iPad e uso de tokens do dia e da semana.</p></article>
+        <article class="feat"><span class="tag">09 / Sistema</span><h3>Janelas, energia e brilho.</h3><p>Desktops virtuais, encaixar, screenshot, bloquear, suspender, desligar (segurando para confirmar), brilho dos monitores via DDC/CI e escurecer o iPad à noite.</p></article>
+        <article class="feat"><span class="tag">10 / Sofá</span><h3>Jogue na TV com o iPad de controle.</h3><p>Com o PC transmitindo para a TV pelo Moonlight/Sunshine, o iPad no braço do sofá abre o jogo, ajusta o volume do jogo e do Discord e fecha tudo no fim, sem levantar para pegar o mouse.</p></article>
       </div>
     </section>
 
@@ -164,7 +168,7 @@
       <p class="eyebrow">Segurança</p>
       <h2>Feito para a sua rede de casa.</h2>
       <div class="sec-grid">
-        <div class="sec"><b>Sem comandos livres</b><p>O iPad envia só o id de um botão. O que cada botão faz existe apenas no <code>config.json</code> do PC.</p></div>
+        <div class="sec"><b>Sem comandos livres</b><p>O iPad envia só o id de um botão ou de um jogo. Comandos e caminhos existem apenas no <code>config.json</code> e no scan feito pelo próprio PC.</p></div>
         <div class="sec"><b>Token opcional</b><p>Com convidados no Wi-Fi, ligue o token: o WebSocket recusa quem não tiver.</p></div>
         <div class="sec"><b>Só rede Privada</b><p>A regra de firewall libera a porta apenas no perfil Privado. Não exponha a porta para a internet.</p></div>
         <div class="sec"><b>Ações perigosas exigem gesto</b><p>Desligar e reiniciar pedem segurar o botão, e o servidor confere de novo.</p></div>
@@ -177,7 +181,7 @@
       <h2>O que você precisa.</h2>
       <div class="compat">
         <span>Windows 10 / 11</span><span>Python 3.11 a 3.13</span><span>iPad Air 2 / iPadOS 15+</span><span>Qualquer iPad</span>
-        <span>Tablets Android</span><span>Celular</span><span>Navegador do PC</span><span>Wi-Fi ou cabo, mesma rede</span>
+        <span>Tablets Android</span><span>Celular</span><span>Navegador do PC</span><span>Wi-Fi ou cabo, mesma rede</span><span>Moonlight / Sunshine (opcional, p/ jogar na TV)</span>
       </div>
     </section>
 
@@ -190,6 +194,8 @@
         <details><summary>Funciona sem iPad?</summary><p>Sim. É uma página web: abre em qualquer tablet, celular ou outro computador na mesma rede. O layout foi pensado para 1024×768 em paisagem, mas também funciona em retrato.</p></details>
         <details><summary>Preciso de jailbreak?</summary><p>Não. Tudo roda no Safari. O README tem dicas opcionais para quem já tem jailbreak (reabrir o painel por SSH, por exemplo).</p></details>
         <details><summary>Não quero LoL nem futebol. Dá para tirar?</summary><p>Dá. Cada aba extra liga e desliga no assistente ou em <code>"features"</code> no <code>config.json</code>. Aba desligada some do iPad e não roda nada em segundo plano.</p></details>
+        <details><summary>A aba Jogos não mostra um dos meus jogos</summary><p>O scan cobre Steam, Epic, GOG e Xbox/Microsoft Store. Jogos de outras lojas (Valorant/LoL pelo Riot Client, Battle.net, EA, jogos "soltos") entram em <code>"games" › "extra"</code> no <code>config.json</code>, com o caminho do <code>.exe</code> ou um link tipo <code>battlenet://</code>; exemplos no README. Depois toque em <b>↻ Procurar jogos</b>. Para esconder algo que apareceu à toa, use <code>"games" › "hide"</code>.</p></details>
+        <details><summary>Dá para jogar na TV usando o iPad?</summary><p>Dá. Com o PC transmitindo para a TV por Moonlight (Sunshine no PC), a imagem e o áudio já vão para a TV. O iPad serve de controle: abre o jogo pela aba Jogos, ajusta o volume no Mixer e fecha o jogo no fim.</p></details>
         <details><summary>O assistente do LoL é permitido pela Riot?</summary><p>O painel usa as APIs locais oficiais do cliente e da partida e mostra só informação que o próprio jogo já mostra: sem cooldown de inimigos nem rastreio de selva. Ações como banir e escolher são sempre um toque seu.</p></details>
         <details><summary>Como atualizo?</summary><p>Baixe a versão nova por cima (ou <code>git pull</code>) e rode o <code>start.bat</code>. Ele reinstala as dependências quando precisa, e o seu <code>config.json</code> é mantido.</p></details>
         <details><summary>O iPad fica em "Conectando…"</summary><p>Quase sempre é o firewall ou a rede marcada como Pública. Rode <code>start.bat --setup</code>: ele libera a porta e avisa se a rede estiver como Pública. Confira também se iPad e PC estão na mesma rede (não na de convidados).</p></details>
