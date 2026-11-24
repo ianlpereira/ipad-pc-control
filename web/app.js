@@ -365,12 +365,15 @@
     if (btn.id && clickHandlers[btn.id]) { clickHandlers[btn.id](btn); return; }
     if (btn.dataset.fn && clickHandlers[btn.dataset.fn]) { clickHandlers[btn.dataset.fn](btn); return; }
     if (btn.dataset.lpage !== undefined) { renderLauncher(+btn.dataset.lpage); return; }
+    if (btn.dataset.gfilter !== undefined) { gamesFilter = btn.dataset.gfilter; store('cc_gfilter', gamesFilter); renderGames(); return; }
     var action = btn.dataset.action;
     if (!action) return;
-    send(action, payloadFor(btn)).then(function () {
+    send(action, payloadFor(btn)).then(function (r) {
       btn.classList.add('flash');
       setTimeout(function () { btn.classList.remove('flash'); }, 260);
       if (ackMessages[action]) toast(ackMessages[action]);
+      else if (action === 'games.run' && r) toast('Abrindo ' + r + '…');
+      else if (action === 'games.close') toast('Jogo fechado');
     }).catch(function (e) {
       btn.classList.add('fail');
       setTimeout(function () { btn.classList.remove('fail'); }, 400);
@@ -389,6 +392,7 @@
     store('cc_tab', name);
     applyGameFocus();
     if (name === 'system' && !monitorsLoaded) loadMonitors();
+    if (name === 'games' && !gamesLoaded) loadGames();
     if (name === 'media' || name === 'mixer') { lastDevSig = ''; lastMixSig = ''; if (lastState) renderAudio(lastState.audio); }
   }
 
@@ -613,6 +617,7 @@
     renderFla(window.__ccFlaOverride || st.fla);
     renderDiscord(st.discord);
     renderClaude(st.claude);
+    renderGamesState(st.games);
   }
 
   // ---------------------------------------------------------------- launcher
@@ -633,6 +638,71 @@
         '<i>' + esc(b.icon || '⬛') + '</i><span>' + esc(b.label || b.id) + '</span>' +
         (b.confirm ? '<b class="hold-fill"></b>' : '') + '</button>';
     }).join('') || '<div class="muted">Configure botões em config.json → "launcher"</div>';
+  }
+
+  // ---------------------------------------------------------------- jogos
+  // O servidor reconhece os jogos (Steam, Epic, GOG, Xbox); o iPad só manda o id opaco.
+  var gamesList = [], gamesFilter = store('cc_gfilter') || 'all', gamesLoaded = false;
+  var gamesCount = -1, gamesScanning = false, gamesRunning = {}, gamesRunSig = '';
+  var STORE_NAMES = { steam: 'Steam', epic: 'Epic', gog: 'GOG', xbox: 'Xbox', extra: 'Outros' };
+
+  function gameArtUrl(g) { return '/games/art/' + encodeURIComponent(g.id) + (token ? '?' + tokenQuery() : ''); }
+  function gameHue(name) {
+    var h = 0;
+    for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+    return h;
+  }
+  function gameInitials(name) {
+    var w = name.replace(/[^A-Za-z0-9À-ÿ ]/g, ' ').trim().split(/\s+/);
+    return ((w[0] || '?').charAt(0) + (w.length > 1 ? w[1].charAt(0) : '')).toUpperCase();
+  }
+  function loadGames() {
+    gamesLoaded = true;
+    send('games.list').then(function (list) { gamesList = list || []; renderGames(); })
+      .catch(function () { gamesLoaded = false; });
+  }
+  function renderGames() {
+    var stores = [];
+    gamesList.forEach(function (g) { if (stores.indexOf(g.store) < 0) stores.push(g.store); });
+    if (gamesFilter !== 'all' && stores.indexOf(gamesFilter) < 0) gamesFilter = 'all';
+    var chips = ['all'].concat(stores);
+    $('#games-bar').innerHTML = chips.map(function (s) {
+      return '<button class="btn' + (s === gamesFilter ? ' on' : '') + '" data-gfilter="' + esc(s) + '">' +
+        (s === 'all' ? 'Todos (' + gamesList.length + ')' : esc(STORE_NAMES[s] || s)) + '</button>';
+    }).join('') + '<button class="btn games-refresh" id="games-rescan">↻ Procurar jogos</button>';
+    var shown = gamesList.filter(function (g) { return gamesFilter === 'all' || g.store === gamesFilter; });
+    $('#games-grid').innerHTML = shown.map(function (g) {
+      var id = esc(g.id), hue = gameHue(g.name);
+      var img = g.art ? '<img class="' + g.art + '" alt="" src="' + gameArtUrl(g) +
+        '" onerror="this.style.display=\'none\';this.parentNode.classList.add(\'noart\')">' : '';
+      return '<div class="game-card' + (gamesRunning[g.id] ? ' running' : '') + '" data-gid="' + id + '">' +
+        '<button class="btn game-run' + (g.art ? '' : ' noart') + '" data-action="games.run" data-v="' + id + '"' +
+        ' style="background:hsl(' + hue + ',38%,24%)">' + img + '<b class="game-ini">' + esc(gameInitials(g.name)) + '</b>' +
+        '<span class="game-name">' + esc(g.name) + '</span></button>' +
+        '<i class="game-badge">▶ rodando</i>' +
+        '<button class="btn hold warn game-close" data-action="games.close" data-v="' + id + '">✕ Fechar<b class="hold-fill"></b></button></div>';
+    }).join('') || '<div class="muted games-empty">' +
+      (gamesScanning ? 'Procurando jogos…' : 'Nenhum jogo encontrado. Toque em ↻ para procurar de novo.') + '</div>';
+  }
+  clickHandlers['games-rescan'] = function () {
+    gamesScanning = true; gamesList = []; renderGames();
+    send('games.rescan').then(function (n) {
+      gamesScanning = false; toast(n + ' jogo(s) encontrado(s)'); loadGames();
+    }).catch(function (e) { gamesScanning = false; toast(e.message, true); loadGames(); });
+  };
+  function renderGamesState(s) {
+    if (!s) return;
+    var wasScanning = gamesScanning;
+    gamesScanning = !!s.scanning;
+    // Lista mudou no servidor (scan terminou, outro iPad pediu rescan): recarrega.
+    if (gamesLoaded && ((gamesCount >= 0 && s.count !== gamesCount) || (wasScanning && !s.scanning))) loadGames();
+    gamesCount = s.count;
+    var run = {}, sig = (s.running || []).join('|');
+    (s.running || []).forEach(function (id) { run[id] = true; });
+    gamesRunning = run;
+    if (sig === gamesRunSig) return;
+    gamesRunSig = sig;
+    $$('.game-card').forEach(function (c) { c.classList.toggle('running', !!run[c.dataset.gid]); });
   }
 
   // ---------------------------------------------------------------- tela (DDC/CI)
@@ -693,7 +763,7 @@
   };
 
   // ---------------------------------------------------------------- config / relógio
-  var FEATURE_TABS = { lol: 'lol', football: 'fla', discord: 'discord', claude: 'claude' };
+  var FEATURE_TABS = { lol: 'lol', football: 'fla', discord: 'discord', claude: 'claude', games: 'games' };
   function applyFeatures(c) {
     var f = c.features || {};
     disabledTabs = {};
@@ -722,6 +792,7 @@
     nightCfg = c.night_dim || null;
     updateDim();
     if (currentTab === 'system' && !monitorsLoaded) loadMonitors();
+    if (currentTab === 'games' && !gamesLoaded) loadGames();
   }
 
   function tickClock() {

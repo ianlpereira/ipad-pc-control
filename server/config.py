@@ -20,7 +20,7 @@ EXAMPLE_PATH = ROOT / "config.example.json"
 WEB_DIR = ROOT / "web"
 
 # Abas opcionais do painel. Desligada = a aba some do iPad e o módulo não roda em segundo plano.
-DEFAULT_FEATURES: dict[str, bool] = {"lol": True, "football": True, "discord": True, "claude": True}
+DEFAULT_FEATURES: dict[str, bool] = {"lol": True, "football": True, "discord": True, "claude": True, "games": True}
 
 DEFAULTS: dict[str, Any] = {
     "host": "0.0.0.0",
@@ -38,6 +38,7 @@ DEFAULTS: dict[str, Any] = {
     "night_dim": {"enabled": False, "start": "23:00", "end": "07:00", "opacity": 0.75},
     "features": DEFAULT_FEATURES,
     "launcher": [],
+    "games": {},                    # {"hide": [...], "extra": [...]}; ver README (aba Jogos)
 }
 
 

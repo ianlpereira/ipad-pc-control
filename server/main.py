@@ -26,6 +26,7 @@ from .modules import display, launcher as launcher_mod, media as media_mod, powe
 from .modules import claude as claude_mod
 from .modules import discord_rpc as discord_mod
 from .modules import flamengo as flamengo_mod
+from .modules import games as games_mod
 from .modules import lol as lol_mod
 from .modules import notify as notify_mod
 from .modules.notify import notifier
@@ -84,6 +85,11 @@ if feature_on(cfg, "discord"):
         asyncio.create_task(discord.run())
 
     STARTUP_HOOKS.append(_start_discord)
+
+games = games_mod.register(dispatcher, cfg)
+if feature_on(cfg, "games"):
+    STATE_PROVIDERS["games"] = (games.state, 2.5)
+    STARTUP_HOOKS.append(games.startup)   # scan das lojas em segundo plano
 
 fla = flamengo_mod.register(dispatcher, cfg)
 if feature_on(cfg, "football"):
@@ -227,6 +233,17 @@ async def media_art(token: str = Query(""), k: str = Query("")) -> Response:
     if not _token_ok(token) or art is None:
         return Response(status_code=404)
     return Response(content=art[0], media_type=art[1], headers={"Cache-Control": "max-age=3600"})
+
+
+@app.get("/games/art/{gid}")
+async def games_art(gid: str, token: str = Query("")) -> Response:
+    """Capa/ícone de um jogo da tabela do servidor (o id nunca vira caminho de arquivo)."""
+    if not _token_ok(token):
+        return Response(status_code=404)
+    art = await asyncio.get_running_loop().run_in_executor(None, games.art, gid)
+    if art is None:
+        return Response(status_code=404)
+    return Response(content=art[0], media_type=art[1], headers={"Cache-Control": "max-age=86400"})
 
 
 @app.get("/lol/asset")

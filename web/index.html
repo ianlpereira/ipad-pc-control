@@ -50,6 +50,7 @@
       show('Falha ao carregar ' + src);
       return;
     }
+    if (t && t !== window && t.tagName) return;  // imagem/áudio que falhou: não é erro de JS
     var d = { msg: e.message, src: e.filename, line: e.lineno, col: e.colno };
     report('js-error', d);
     show('Erro JS: ' + e.message + ' (' + (e.filename || '').split('/').pop() + ':' + e.lineno + ':' + e.colno + ')');
@@ -365,6 +366,12 @@
       </div>
     </section>
 
+    <!-- Jogos (detectados automaticamente: Steam, Epic, GOG, Xbox) -->
+    <section class="page" data-page="games">
+      <div id="games-bar" class="chips"></div>
+      <div id="games-grid" class="games-grid scrollable"></div>
+    </section>
+
     <!-- Atalhos -->
     <section class="page" data-page="launcher">
       <div id="launch-tabs" class="chips"></div>
@@ -424,6 +431,7 @@
     <button class="tab" data-tab="fla"><i>⚽</i><span>Flamengo</span></button>
     <button class="tab" data-tab="discord"><i>🎧</i><span>Discord</span></button>
     <button class="tab" data-tab="claude"><i>✳️</i><span>Claude</span><b id="claude-badge" class="badge hidden">0</b></button>
+    <button class="tab" data-tab="games"><i>🎮</i><span>Jogos</span></button>
     <button class="tab" data-tab="launcher"><i>🚀</i><span>Atalhos</span></button>
     <button class="tab" data-tab="windows"><i>🪟</i><span>Janelas</span></button>
     <button class="tab" data-tab="system"><i>⚡</i><span>Sistema</span></button>

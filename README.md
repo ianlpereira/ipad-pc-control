@@ -21,7 +21,7 @@ Você precisa de um **PC com Windows 10/11**, **Python 3.11 a 3.13** e o iPad (o
 4. **Responda o assistente** (Enter aceita o valor sugerido). Ele detecta sozinho o que dá e:
    - mostra o IP do PC e define a porta e o token de acesso;
    - encontra o LibreHardwareMonitor e a placa de vídeo (temperaturas e GPU);
-   - liga só as abas que você quer: LoL (acha a pasta do jogo), futebol (escolha o time numa lista das Séries A e B, ou qualquer outro), Discord e Claude Code;
+   - liga só as abas que você quer: LoL (acha a pasta do jogo), futebol (escolha o time numa lista das Séries A e B, ou qualquer outro), Discord, Claude Code e a aba Jogos;
    - libera a porta no **Firewall do Windows** (pede permissão de administrador) e avisa se a rede estiver como Pública;
    - opcionalmente faz o servidor **iniciar junto com o Windows**.
 5. **No iPad**, abra no Safari a URL que aparece no final (ex.: `http://192.168.0.10:8765/`) e toque em **Compartilhar › Adicionar à Tela de Início** para abrir em tela cheia.
@@ -33,7 +33,7 @@ Atualizar: baixe a versão nova por cima (ou `git pull`) e rode o `start.bat`. E
 ```
 ┌──────────────────────── iPad Air 2 (Safari 15 / WebClip tela cheia) ────────────────────────┐
 │  web/index.html + style.css + app.js  (Vanilla JS ES2017, ~30 KB, sem build, sem framework)  │
-│  Topbar · Telemetria fixa (CPU/GPU/RAM/Temp/Rede) · 9 abas · zero scroll · 1024×768          │
+│  Topbar · Telemetria fixa (CPU/GPU/RAM/Temp/Rede) · 10 abas · zero scroll · 1024×768          │
 └───────────────┬──────────────────────────────────────────────────────────────▲──────────────┘
                 │ HTTP GET /  (arquivos estáticos)                             │ state a cada 1 s
                 │ WS /ws          {"t":"cmd","a":"audio.master.set","v":0.5}   │ + push após comando
@@ -44,6 +44,7 @@ Atualizar: baixe a versão nova por cima (ou `git pull`) e rode o `start.bat`. E
 │   audio.py      pycaw/Core Audio: volume mestre, mixer por app, troca de saída (IPolicyConfig)│
 │   media.py      WinRT SMTC: música atual, capa, play/pause/next/prev                        │
 │   launcher.py   apps, pastas, URLs, scripts .bat/.ps1/.sh/.py, atalhos e macros (config.json)│
+│   games.py      detecta jogos (Steam, Epic, GOG, Xbox), abre e fecha pelo iPad                │
 │   windows.py    desktops virtuais, Win+D, Alt+F4, snap, screenshot (Pillow)                 │
 │   power.py      desligar, reiniciar, suspender, bloquear, reiniciar Explorer, monitor off   │
 │   display.py    brilho via DDC/CI (monitorcontrol), atalho para Luz Noturna                 │
@@ -80,7 +81,7 @@ Passos manuais equivalentes ao assistente:
 Mídia, Mixer, Atalhos, Janelas e Sistema estão sempre ligadas. As outras ligam e desligam em `features`; aba desligada some do iPad e não roda nada em segundo plano:
 
 ```json
-"features": { "lol": true, "football": false, "discord": false, "claude": false }
+"features": { "lol": true, "football": false, "discord": false, "claude": false, "games": true }
 ```
 
 Sem a chave `features`, todas ficam ligadas (compatível com configs antigos).
@@ -191,6 +192,7 @@ O TrollStore instala apps permanentemente no iOS 15 sem precisar de jailbreak. U
 | **Futebol** (opcional) | Placar ao vivo do seu time, lances, estatísticas, escalações, tabela e próximos jogos |
 | **Discord** (opcional) | Canal atual, entrar no canal do grupo com 1 toque, sair, mute/ensurdecer; amigos na call com avatar (acende quem fala), mudo/surdo e volume individual |
 | **Claude** (opcional) | Sessões do Claude Code (trabalhando/esperando você/concluído), pedidos de permissão com Permitir/Negar, tokens de hoje e 7 dias, abrir projeto/app/claude.ai |
+| **Jogos** (opcional) | Reconhece sozinha os jogos instalados (Steam em todas as bibliotecas/discos, Epic, GOG e Xbox/Game Pass), com capas; abre com 1 toque, mostra quais estão rodando e fecha o jogo (segurar). Veja [Jogos](#jogos-detecção-automática) |
 | **Atalhos** | Páginas de botões configuráveis (apps, pastas, sites, scripts, macros) |
 | **Janelas** | Desktop anterior/próximo/novo, Visão de tarefas, Alt+Tab, Mostrar desktop, Maximizar, Encaixar, Explorer, Screenshot (salva em `Imagens\ControlCenter`), Recorte, Fechar janela (segurar) |
 | **Sistema** | Bloquear, Suspender, Desligar monitor, Reiniciar Explorer, Reiniciar, Desligar (**segurar 1,2 s** para confirmar); brilho dos monitores via DDC/CI; Luz Noturna; escurecer iPad |
@@ -298,6 +300,31 @@ O `config.json` é gerado a partir do `config.example.json`. Reinicie o servidor
 
 Até 18 botões por página (6×3). Caminhos relativos de scripts partem da pasta do projeto (`scripts/`). Scripts `.sh` usam o `bash` do Git for Windows ou do WSL.
 
+#### Jogos (detecção automática)
+
+A aba **Jogos** varre as lojas ao iniciar o servidor (e no botão **↻ Procurar jogos**) e guarda o resultado em `data/games.json`:
+
+- **Steam**: lê `libraryfolders.vdf` e os `appmanifest_*.acf` de todas as bibliotecas (outros discos incluídos); ignora Proton, runtimes e redistribuíveis. Capas vêm do cache local da Steam.
+- **Epic**: manifestos em `ProgramData\Epic\EpicGamesLauncher\Data\Manifests`.
+- **GOG**: registro do Windows (abre pelo GOG Galaxy quando instalado).
+- **Xbox / Microsoft Store**: pacotes de jogo (com `MicrosoftGame.config`), como os do Game Pass.
+
+Quem não tem capa mostra o ícone do `.exe`. Jogos de outras lojas (Riot, Battle.net, EA...) ou escondidos entram pelo `config.json`:
+
+```json
+"games": {
+  "hide": ["Steamworks", "steam-123456"],
+  "extra": [
+    { "label": "Valorant", "type": "app",
+      "target": "C:/Riot Games/Riot Client/RiotClientServices.exe",
+      "args": ["--launch-product=valorant", "--launch-patchline=live"] },
+    { "label": "Battle.net", "type": "url", "target": "battlenet://" }
+  ]
+}
+```
+
+`hide` aceita o id (`steam-ID`, `epic-NOME`...) ou um trecho do nome. "Fechar" encerra só processos cujo `.exe` está dentro da pasta de instalação do próprio jogo.
+
 Outras opções: `port`, `tick_seconds` (intervalo de telemetria), `lhm_url`, `gpu_name_filter`, `net_exclude` (interfaces ignoradas no cálculo de rede), `audio_device_hide` (oculta saídas virtuais como "Steam Streaming"), `screenshot_dir`.
 
 ---
@@ -305,7 +332,7 @@ Outras opções: `port`, `tick_seconds` (intervalo de telemetria), `lhm_url`, `g
 ## 6. Segurança
 
 - **Por padrão não há autenticação** (`"require_token": false`): qualquer dispositivo conectado à mesma rede que abrir `http://IP:8765` controla o PC, inclusive desligar e rodar os scripts do `config.json`. Isso é aceitável numa rede doméstica só sua. Se houver convidados no Wi-Fi, Wi-Fi sem senha forte ou rede compartilhada, ative `"require_token": true` no `config.json`: o WebSocket passa a exigir o `token` (código 4401 se errado) e o console mostra a URL com `?token=...`.
-- O iPad **nunca envia comandos ou caminhos livres**: ele manda só o `id` de um botão, e o que cada botão executa existe apenas no `config.json` do PC.
+- O iPad **nunca envia comandos ou caminhos livres**: ele manda só o `id` de um botão (ou de um jogo), e o que cada um executa existe apenas no `config.json` ou no scan feito pelo próprio PC.
 - Ações de energia exigem `{"confirm": true}` no servidor, além do gesto de segurar na interface.
 - Libere a porta só no perfil de rede **Privado**. Não exponha a porta 8765 para a internet: o tráfego é HTTP sem TLS, feito para a LAN.
 
@@ -322,7 +349,7 @@ Outras opções: `port`, `tick_seconds` (intervalo de telemetria), `lhm_url`, `g
 {"t":"config","host":"DESKTOP","launcher":[...],"night_dim":{...}}         // ao conectar
 ```
 
-Ações disponíveis: `ping`, `audio.master.set|mute`, `audio.app.set|mute`, `audio.device.set`, `media.toggle|next|prev`, `launcher.run`, `win.desktop_prev|desktop_next|desktop_new|task_view|alt_tab|minimize_all|maximize|snap_left|snap_right|explorer|close|screenshot|snip|screenshots_folder`, `power.lock|sleep|restart|shutdown|explorer|monitor_off`, `display.list|set|nightlight`, `lol.accept|decline|auto_accept|open_client|close_client`, `discord.join_group|leave|mute|deaf|user_volume`, `claude.permission.decide|remote|launch`, `notify.clear`.
+Ações disponíveis: `ping`, `audio.master.set|mute`, `audio.app.set|mute`, `audio.device.set`, `media.toggle|next|prev`, `launcher.run`, `games.list|run|close|rescan`, `win.desktop_prev|desktop_next|desktop_new|task_view|alt_tab|minimize_all|maximize|snap_left|snap_right|explorer|close|screenshot|snip|screenshots_folder`, `power.lock|sleep|restart|shutdown|explorer|monitor_off`, `display.list|set|nightlight`, `lol.accept|decline|auto_accept|open_client|close_client`, `discord.join_group|leave|mute|deaf|user_volume`, `claude.permission.decide|remote|launch`, `notify.clear`.
 
 Mensagens extras do servidor: `{"t":"notify",...}` (alerta), `{"t":"notify_list","items":[...]}` (histórico ao conectar) e `{"t":"event","name":"switch_tab","tab":"lol"}`. Módulos novos registram estado com `STATE_PROVIDERS["nome"] = (coroutine, timeout)` em `server/main.py`.
 

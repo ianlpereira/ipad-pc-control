@@ -11,7 +11,8 @@
   "net_exclude": ["loopback", "vethernet", "virtualbox", "vmware", "bluetooth"],
   "screenshot_dir": "",
   "audio_device_hide": ["steam streaming"],
-  "features": { "lol": true, "football": false, "discord": false, "claude": false },
+  "features": { "lol": true, "football": false, "discord": false, "claude": false, "games": true },
+  "games": { "hide": [], "extra": [] },
   "night_dim": { "enabled": false, "start": "23:00", "end": "07:00", "opacity": 0.75 },
   "lol": {
     "dir": "C:/Riot Games/League of Legends",

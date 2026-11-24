@@ -363,6 +363,11 @@ def step_features(cfg: dict) -> None:
         info("depois clique com o botão direito no canal > Copiar ID do canal.")
         dc["group_channel_id"] = ask("ID do canal de voz do grupo (vazio = depois)", dc.get("group_channel_id", ""))
 
+    # --- Jogos
+    info()
+    info("Aba Jogos: reconhece sozinha os jogos da Steam, Epic, GOG e Xbox e abre/fecha pelo iPad.")
+    feats["games"] = ask_yes("Ativar a aba Jogos?", feats.get("games", True))
+
     # --- Claude Code
     info()
     cl = cfg.setdefault("claude", {})
