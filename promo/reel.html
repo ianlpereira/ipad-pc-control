@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>PC Control Center: Reels</title>
+<style>
+  :root { --bg: #070a0f; --text: #eef2f7; --muted: #94a3b8; --accent: #38bdf8; --accent-2: #a78bfa; --green: #34d399;
+    --font: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    --mono: "Cascadia Code", Consolas, monospace; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+  body { font-family: var(--font); color: var(--text); -webkit-font-smoothing: antialiased; }
+  #stage { position: absolute; inset: 0; overflow: hidden;
+    background:
+      radial-gradient(900px 700px at 10% 8%, rgba(56, 189, 248, .20), transparent 62%),
+      radial-gradient(800px 700px at 95% 30%, rgba(167, 139, 250, .18), transparent 62%),
+      radial-gradient(900px 600px at 50% 105%, rgba(244, 114, 182, .10), transparent 62%), var(--bg); }
+  .grad { background: linear-gradient(90deg, #38bdf8, #a78bfa 55%, #f472b6); -webkit-background-clip: text;
+    background-clip: text; color: transparent; }
+
+  /* legenda: dentro da zona segura (y 270..1248, x 65..1015) */
+  #cap { position: absolute; left: 70px; right: 70px; top: 280px; height: 190px; display: flex; flex-direction: column;
+    justify-content: flex-end; }
+  #kicker { font-size: 28px; font-weight: 750; letter-spacing: .14em; color: var(--accent); margin-bottom: 10px; }
+  #title { font-size: 64px; line-height: 1.04; font-weight: 850; letter-spacing: -.03em; }
+
+  /* iPad */
+  #device { position: absolute; left: 40px; top: 486px; width: 1000px; height: 760px; padding: 20px;
+    border-radius: 44px; background: linear-gradient(160deg, #2a3242, #0c1017);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, .08) inset, 0 40px 120px rgba(0, 0, 0, .65), 0 0 90px rgba(56, 189, 248, .12);
+    transform-origin: 50% 50%; }
+  #screen { position: relative; width: 960px; height: 720px; border-radius: 24px; overflow: hidden; background: #0b0f17; }
+  #cam { position: absolute; left: 0; top: 0; width: 1024px; height: 768px; transform-origin: 0 0; }
+  #cam img.layer { position: absolute; inset: 0; width: 1024px; height: 768px; }
+  .finger { position: absolute; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%;
+    background: rgba(255, 255, 255, .85); box-shadow: 0 6px 22px rgba(0, 0, 0, .45), 0 0 0 3px rgba(255, 255, 255, .35); }
+  .ripple { position: absolute; border-radius: 50%; border: 4px solid rgba(255, 255, 255, .9); }
+  .ring { position: absolute; width: 96px; height: 96px; margin: -48px 0 0 -48px; border-radius: 50%; }
+  #toast { position: absolute; left: 50%; top: 600px; transform: translateX(-50%); padding: 14px 26px; border-radius: 16px;
+    background: rgba(16, 185, 129, .95); color: #fff; font-size: 22px; font-weight: 700; white-space: nowrap;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .4); }
+
+  /* terminal (instalação) */
+  #term { position: absolute; left: 70px; right: 70px; top: 520px; border-radius: 22px; overflow: hidden;
+    background: #0c1017; border: 1px solid rgba(255, 255, 255, .1); box-shadow: 0 40px 120px rgba(0, 0, 0, .6); }
+  #term .bar { height: 54px; display: flex; align-items: center; gap: 10px; padding: 0 22px; background: #161c27;
+    color: var(--muted); font-size: 22px; }
+  #term .bar i { width: 15px; height: 15px; border-radius: 50%; display: inline-block; }
+  #term pre { margin: 0; padding: 28px 30px 34px; font: 28px/1.55 var(--mono); color: #d7dee8; min-height: 560px;
+    white-space: pre-wrap; }
+  #term .p { color: var(--accent); } #term .ok { color: var(--green); } #term .d { color: var(--muted); }
+
+  /* final */
+  #cta { position: absolute; left: 70px; right: 70px; top: 330px; text-align: center; }
+  #cta img { width: 200px; height: 200px; border-radius: 46px; box-shadow: 0 20px 80px rgba(56, 189, 248, .35); }
+  #cta h2 { font-size: 84px; line-height: 1; margin: 46px 0 18px; font-weight: 850; letter-spacing: -.035em; }
+  #cta .sub { font-size: 36px; color: var(--muted); }
+  #cta .pill { display: inline-block; margin-top: 64px; padding: 26px 48px; border-radius: 999px; font-size: 46px; font-weight: 800;
+    background: linear-gradient(135deg, #0ea5e9, #8b5cf6); color: #fff; box-shadow: 0 20px 60px rgba(139, 92, 246, .45); }
+  #cta .url { margin-top: 34px; font-size: 30px; color: #cbd5e1; font-family: var(--mono); }
+  #cta .tags { margin-top: 38px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  #cta .tags span { font-size: 27px; padding: 10px 22px; border-radius: 12px; border: 1px solid rgba(52, 211, 153, .45);
+    color: var(--green); background: rgba(52, 211, 153, .08); font-weight: 650; }
+
+  /* progresso das funções, abaixo do iPad (decorativo: a interface do Instagram pode cobrir) */
+  #steps { position: absolute; left: 40px; right: 40px; top: 1290px; display: flex; flex-wrap: nowrap; gap: 9px;
+    justify-content: center; }
+  #steps span { font-size: 23px; font-weight: 650; padding: 7px 14px; border-radius: 12px; color: #64748b;
+    border: 1px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .03); }
+  #steps span.on { color: #fff; border-color: transparent; background: linear-gradient(135deg, #0ea5e9, #8b5cf6); }
+  #steps span.done { color: #cbd5e1; }
+
+  /* depuração: zonas cobertas pela interface do Instagram */
+  .safe { position: absolute; left: 0; right: 0; background: rgba(255, 0, 80, .28); outline: 2px dashed #ff2d6f; z-index: 99; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="cap"><div id="kicker"></div><div id="title"></div></div>
+  <div id="device"><div id="screen"><div id="cam">
+    <img class="layer" id="imgA" alt=""><img class="layer" id="imgB" alt="">
+    <div id="fx"></div>
+  </div><div id="toast">✓ Runas importadas no cliente</div></div></div>
+  <div id="term"><div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i>
+    <span style="margin-left:10px">PowerShell</span></div><pre id="term-text"></pre></div>
+  <div id="steps"></div>
+  <div id="cta">
+    <img src="../docs/assets/icon.png" alt="">
+    <h2><span class="grad">PC Control Center</span></h2>
+    <div class="sub">Seu iPad como painel do PC com Windows</div>
+    <div class="pill">Link na bio</div>
+    <div class="url">ianlpereira.github.io/ipad-pc-control</div>
+    <div class="tags"><span>Grátis</span><span>Código aberto</span><span>Roda no Safari do iPad</span></div>
+  </div>
+</div>
+<script src="reel.js"></script>
+</body>
+</html>

@@ -5,3 +5,7 @@ config.json
 config.json.bak*
 logs/
 data/
+
+# material promocional (gerado)
+promo/data/
+promo/out/
